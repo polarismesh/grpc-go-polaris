@@ -1,3 +1,1 @@
-# grpc-go-polaris
-
-test
+# grpc resolver by polaris
