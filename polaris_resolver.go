@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/resolver"
 
 	"github.com/polarismesh/polaris-go/api"
+	"github.com/polarismesh/polaris-go/pkg/model"
 )
 
 var (
@@ -43,6 +44,10 @@ type Conf struct {
 	SyncInterval time.Duration
 	// 可选，元数据信息，用于服务路由
 	Metadata map[string]string
+	// 可选，主调方服务信息，用于规则路由
+	SourceService *model.ServiceInfo
+	// 可选，规则路由Meta匹配前缀，用于过滤作为路由规则的gRPC Header
+	HeaderPrefix []string
 }
 
 // NewBuilder 创建一个resolver.Builder的实例
@@ -51,6 +56,8 @@ func NewBuilder(c Conf) resolver.Builder {
 		polarisConsumer: c.PolarisConsumer,
 		syncInterval:    c.SyncInterval,
 		metadata:        c.Metadata,
+		sourceService:   c.SourceService,
+		headerPrefix:    c.HeaderPrefix,
 	}
 }
 
@@ -67,6 +74,8 @@ type PolarisBuilder struct {
 	polarisConsumer api.ConsumerAPI
 	syncInterval    time.Duration
 	metadata        map[string]string
+	sourceService   *model.ServiceInfo
+	headerPrefix    []string
 }
 
 // PolarisBuilder 实现 Resolver Builder interface 中的 Scheme 方法
@@ -109,6 +118,8 @@ func (pb *PolarisBuilder) Build(
 		attributeKeyPolarisConsumer, pb.polarisConsumer,
 		attributeKeySyncInterval, pb.syncInterval,
 		attributeKeyMetadata, pb.metadata,
+		attributeKeySourceService, pb.sourceService,
+		attributeKeyHeaderPrefix, pb.headerPrefix,
 	)
 	cc.UpdateState(resolver.State{
 		Addresses: []resolver.Address{
