@@ -430,7 +430,7 @@ func (pp *polarisPicker) Pick(info balancer.PickInfo) (balancer.PickResult, erro
 	pickedInstance := resp.Instances[0]
 	sc, ok := pp.subConn[pickedInstance.GetInstanceKey()]
 	if !ok {
-		grpclog.Infof("polarisBalancer: polarisConsumer GetOneInstance not ready, instanceKey:%s",
+		grpclog.Errorf("polarisBalancer: polarisConsumer GetOneInstance not ready, instanceKey:%s",
 			pickedInstance.GetInstanceKey())
 		// 说明GetOneInstance拿到的实例在Balancer记录状态不ready
 		// 触发balancer更新一次新的实例列表
