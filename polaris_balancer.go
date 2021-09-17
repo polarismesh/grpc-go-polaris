@@ -20,6 +20,7 @@ package grpcpolaris
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/status"
 
@@ -78,6 +80,8 @@ const (
 	attributeKeyPolarisConsumer attributeKey = 3
 	attributeKeySyncInterval    attributeKey = 4
 	attributeKeyMetadata        attributeKey = 5
+	attributeKeySourceService   attributeKey = 6
+	attributeKeyHeaderPrefix    attributeKey = 7
 )
 
 // polarisBalancer
@@ -87,6 +91,8 @@ type polarisBalancer struct {
 	polarisConsumer api.ConsumerAPI
 	syncInterval    time.Duration
 	metadata        map[string]string
+	sourceService   *model.ServiceInfo
+	headerPrefix    []string
 	namespace       string
 	service         string
 	// subConns
@@ -136,8 +142,22 @@ func (b *polarisBalancer) UpdateClientConnState(cs balancer.ClientConnState) err
 		b.syncInterval = defaultSyncInterval
 	}
 
-	if metadata, ok := attr.Value(attributeKeyMetadata).(map[string]string); ok {
-		b.metadata = metadata
+	if meta, ok := attr.Value(attributeKeyMetadata).(map[string]string); ok {
+		b.metadata = meta
+	} else {
+		b.metadata = nil
+	}
+
+	if sourceService, ok := attr.Value(attributeKeySourceService).(*model.ServiceInfo); ok {
+		b.sourceService = sourceService
+	} else {
+		b.sourceService = nil
+	}
+
+	if headerPrefix, ok := attr.Value(attributeKeyHeaderPrefix).([]string); ok {
+		b.headerPrefix = headerPrefix
+	} else {
+		b.headerPrefix = nil
 	}
 
 	go b.daemon()
@@ -167,13 +187,17 @@ func (b *polarisBalancer) updatePolarisInstances() {
 			grpclog.Errorf("polarisBalancer: updatePolarisInstances panic:%v", rec)
 		}
 	}()
-	resp, err := b.polarisConsumer.GetInstances(&api.GetInstancesRequest{
-		GetInstancesRequest: model.GetInstancesRequest{
-			Service:   b.service,
-			Namespace: b.namespace,
-			Metadata:  b.metadata,
-		}},
-	)
+	var getInstancesReq *api.GetInstancesRequest
+	getInstancesReq = &api.GetInstancesRequest{}
+	getInstancesReq.Namespace = b.namespace
+	getInstancesReq.Service = b.service
+	if b.metadata != nil {
+		getInstancesReq.Metadata = b.metadata
+	}
+	if b.sourceService != nil {
+		getInstancesReq.SourceService = b.sourceService
+	}
+	resp, err := b.polarisConsumer.GetInstances(getInstancesReq)
 	if err != nil {
 		grpclog.Errorf("polarisBalancer: failed to get instances, err:%s", err)
 		return
@@ -272,6 +296,8 @@ func (b *polarisBalancer) UpdateSubConnState(sc balancer.SubConn, s balancer.Sub
 		namespace:            b.namespace,
 		service:              b.service,
 		metadata:             b.metadata,
+		sourceService:        b.sourceService,
+		headerPrefix:         b.headerPrefix,
 		polarisConsumer:      b.polarisConsumer,
 		subConn:              b.getReadySubConn(),
 		syncPolarisInstances: b.syncPolarisInstances,
@@ -342,6 +368,8 @@ type polarisPicker struct {
 	namespace       string
 	service         string
 	metadata        map[string]string
+	sourceService   *model.ServiceInfo
+	headerPrefix    []string
 	polarisConsumer api.ConsumerAPI
 	// subConns readOnly map
 	subConn map[model.InstanceKey]balancer.SubConn
@@ -350,7 +378,7 @@ type polarisPicker struct {
 }
 
 // Pick 选择一个SubConn, 是核心方法.
-func (pp *polarisPicker) Pick(balancer.PickInfo) (balancer.PickResult, error) {
+func (pp *polarisPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	if pp.err != nil {
 		grpclog.Infof("polarisPicker: ret err:%s", pp.err)
 		return balancer.PickResult{}, pp.err
@@ -358,29 +386,63 @@ func (pp *polarisPicker) Pick(balancer.PickInfo) (balancer.PickResult, error) {
 	if len(pp.subConn) == 0 {
 		return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 	}
-	resp, err := pp.polarisConsumer.GetOneInstance(&api.GetOneInstanceRequest{
-		GetOneInstanceRequest: model.GetOneInstanceRequest{
-			Namespace: pp.namespace,
-			Service:   pp.service,
-			Metadata:  pp.metadata,
-		},
-	})
+	var getOneInstancesReq *api.GetOneInstanceRequest
+	getOneInstancesReq = &api.GetOneInstanceRequest{}
+	getOneInstancesReq.Namespace = pp.namespace
+	getOneInstancesReq.Service = pp.service
+	if pp.metadata != nil {
+		getOneInstancesReq.Metadata = pp.metadata
+	}
+	if pp.sourceService != nil {
+		// 如果在Conf中配置了SourceService，则优先使用配置
+		getOneInstancesReq.SourceService = pp.sourceService
+	} else {
+		// 如果没有配置，则使用gRPC Header作为规则路由元数据
+		if md, ok := metadata.FromOutgoingContext(info.Ctx); ok {
+			mp := make(map[string]string)
+			for kvs := range md {
+				if pp.headerPrefix != nil {
+					// 如果配置的前缀不为空，则要求header匹配前缀
+					for _, prefix := range pp.headerPrefix {
+						if strings.HasPrefix(kvs, prefix) {
+							mp[strings.TrimPrefix(kvs, prefix)] = md[kvs][0]
+							break
+						}
+					}
+				} else {
+					// 否则全量使用header作为规则路由元数据
+					mp[kvs] = md[kvs][0]
+				}
+			}
+			if len(mp) > 0 {
+				getOneInstancesReq.SourceService = &model.ServiceInfo{
+					Metadata: mp,
+				}
+			}
+		}
+	}
+	resp, err := pp.polarisConsumer.GetOneInstance(getOneInstancesReq)
 	if err != nil || len(resp.Instances) < 1 {
 		grpclog.Errorf("polarisBalancer: polarisConsumer.GetOneInstance err:%v", err)
-		// polarisConsumer返回了错误, 此时随机选一个ready的.
-		return balancer.PickResult{SubConn: pp.randomGetSubConn()}, nil
+		// polarisConsumer返回了错误, 此时返回没有可用连接错误.
+		return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 	}
 	pickedInstance := resp.Instances[0]
 	sc, ok := pp.subConn[pickedInstance.GetInstanceKey()]
 	if !ok {
-		grpclog.Infof("polarisBalancer: polarisConsumer GetOneInstance not ready, instanceKey:%s",
+		grpclog.Errorf("polarisBalancer: polarisConsumer GetOneInstance not ready, instanceKey:%s",
 			pickedInstance.GetInstanceKey())
-		// 说明GetOneInstance拿到的实例不ready, 此时随机选一个ready的.
-		// 触发balancer 更新一次新的实例列表
+		// 说明GetOneInstance拿到的实例在Balancer记录状态不ready
+		// 触发balancer更新一次新的实例列表
+		// 然后再次查找，如果还是没有则返回没有可用连接错误
 		if pp.syncPolarisInstances != nil {
 			pp.syncPolarisInstances()
+
 		}
-		return balancer.PickResult{SubConn: pp.randomGetSubConn()}, nil
+		sc, ok = pp.subConn[pickedInstance.GetInstanceKey()]
+		if !ok {
+			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
+		}
 	}
 	return balancer.PickResult{SubConn: sc, Done: pp.makePickResultDone(pickedInstance)}, nil
 }

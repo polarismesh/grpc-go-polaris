@@ -20,6 +20,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/polarismesh/polaris-go/pkg/config"
+	"github.com/polarismesh/polaris-go/pkg/model"
 	"log"
 	"os"
 	"regexp"
@@ -43,7 +45,7 @@ var (
 )
 
 func main() {
-	target, sendCount, sendInterval, metadata := processArgs()
+	namespace, service, target, sendCount, sendInterval, metadata := processArgs()
 
 	//创建并设置 Polaris 配置对象
 	configuration := api.NewConfiguration()
@@ -53,6 +55,9 @@ func main() {
 	configuration.GetGlobal().GetServerConnector().SetConnectTimeout(2 * time.Second)
 	//设置consumer关闭全死全活，可选
 	configuration.GetConsumer().GetServiceRouter().SetEnableRecoverAll(false)
+	//设置服务路由相关配置，使用元数据路由以及规则路由
+	configuration.GetConsumer().GetServiceRouter().SetChain(
+		[]string{config.DefaultServiceRouterDstMeta, config.DefaultServiceRouterRuleBased})
 
 	//使用配置获取 Polaris SDK 对象
 	//Polaris Consumer API
@@ -66,7 +71,15 @@ func main() {
 	polaris.Init(polaris.Conf{
 		PolarisConsumer: consumer,
 		SyncInterval:    time.Second * time.Duration(sendInterval),
-		Metadata:        metadata,
+		Metadata:        metadata,                    //需要进行元数据路由的元数据，可选
+		SourceService:   &model.ServiceInfo{          //通过SourceService属性设置主调服务的过滤标签，可选
+			Namespace: namespace,                     //主调的namespace
+			Service:   service,                       //主调的service
+			Metadata: map[string]string{              //用于匹配路由规则
+				"flag": "test",
+			},
+		},
+		HeaderPrefix: []string{"naming_","tracing_"},  //用于过滤作为路由规则的gRPC Header，可选
 	})
 
 	//grpc客户端连接获取
@@ -91,33 +104,36 @@ func main() {
 }
 
 //解析启动参数
-func processArgs() (string, int, int, map[string]string) {
+func processArgs() (string, string, string, int, int, map[string]string) {
 	params := os.Args[1:]
-	if len(params) < 3 {
-		log.Fatalf("using %s <target> <sendCount> <sendInterval> "+
+	if len(params) < 5 {
+		log.Fatalf("using %s <namespace> <service> <target> <sendCount> <sendInterval> "+
 			"<metadata k1:metadata v1,metadata k2:metadata v2,...>", os.Args[0])
 	}
-	target := params[0]
+
+	namespace := params[0]
+	service := params[1]
+	target := params[2]
 	if !regexPolaris.MatchString(target) {
 		log.Fatalf("using invalid target: %s", os.Args[0])
 	}
-	sendCount, err := strconv.Atoi(params[1])
+	sendCount, err := strconv.Atoi(params[3])
 	if nil != err {
 		log.Fatalf("fail to convert sendCount %s to int, err %v", params[1], err)
 	}
-	sendInterval, err := strconv.Atoi(params[2])
+	sendInterval, err := strconv.Atoi(params[4])
 	if nil != err {
 		log.Fatalf("fail to convert sendInterval %s to int, err %v", params[2], err)
 	}
-	if len(params) > 3 {
-		metadata, err := parseMetadata(params[3])
+	if len(params) > 5 {
+		metadata, err := parseMetadata(params[5])
 		if nil != err {
 			log.Fatalf("fail to parse metadata string %s, err %v", params[3], err)
 		}
-		return target, sendCount, sendInterval, metadata
+		return namespace, service, target, sendCount, sendInterval, metadata
 	}
 
-	return target, sendCount, sendInterval, nil
+	return namespace, service, target, sendCount, sendInterval, nil
 }
 
 //解析服务元数据

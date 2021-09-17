@@ -3,6 +3,7 @@ package grpcpolaris
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/metadata"
 	"log"
 	"net"
 	"os"
@@ -35,6 +36,7 @@ func TestPolarisResolver(t *testing.T) {
 	Init(Conf{
 		PolarisConsumer: polarisConsumer,
 		SyncInterval:    time.Second * 5,
+		HeaderPrefix:    []string{"test_"},
 	})
 	// init grpc server
 	srv := grpc.NewServer()
@@ -64,6 +66,7 @@ func TestPolarisResolver(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 	//  grpc client
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx = metadata.NewOutgoingContext(ctx, map[string][]string{"test_key" : {"test_value"}})
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, "polaris://Production/grpc.service", grpc.WithInsecure())
 	if err != nil {
@@ -218,17 +221,24 @@ func (mockPolarisConsumerFail) SDKContext() api.SDKContext {
 func (mockPolarisConsumerFail) GetOneInstance(req *api.GetOneInstanceRequest) (*model.InstancesResponse, error) {
 	log.Printf("call GetOneInstance: req:%+v", req)
 	ret := &model.InstancesResponse{
-		Instances: []model.Instance{},
+		Instances: []model.Instance{instance3},
 	}
 	return ret, nil
 }
 
 // GetInstances 实现ConsumerAPI接口
+var reqGetInstancesCount = 0
 func (mockPolarisConsumerFail) GetInstances(req *api.GetInstancesRequest) (*model.InstancesResponse, error) {
 	log.Printf("call GetInstances: req:%+v", req)
 	ret := &model.InstancesResponse{
-		Instances: []model.Instance{instance1, instance2, instance3},
+		Instances: []model.Instance{instance1},
 	}
+	if reqGetInstancesCount > 0 {
+		ret = &model.InstancesResponse{
+			Instances: []model.Instance{instance1, instance3},
+		}
+	}
+	reqGetInstancesCount++
 	return ret, nil
 }
 
@@ -316,6 +326,7 @@ func TestPolarisResolverFail(t *testing.T) {
 	time.Sleep(time.Millisecond * 200)
 	//  grpc client
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx = metadata.NewOutgoingContext(ctx, map[string][]string{"test_key" : {"test_value"}})
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, "polaris://Production/grpc.service", grpc.WithInsecure())
 	if err != nil {
