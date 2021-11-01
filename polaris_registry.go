@@ -18,9 +18,10 @@
 package grpcpolaris
 
 import (
+	"time"
+
 	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc/grpclog"
-	"time"
 )
 
 // 服务端注册器接口
@@ -31,13 +32,13 @@ type Register interface {
 
 // Polaris限流器
 type PolarisRegister struct {
-	Namespace    string
-	Service      string
-	ServiceToken string
-	Host         string
-	Port         int
-	Count        int
-	ProviderAPI  api.ProviderAPI
+	Namespace            string
+	Service              string
+	ServiceToken         string
+	Host                 string
+	Port                 int
+	HeartbeatIntervalSec time.Duration
+	ProviderAPI          api.ProviderAPI
 }
 
 // 服务注册和心跳上报
@@ -56,7 +57,8 @@ func (pr *PolarisRegister) RegisterAndHeartbeat() {
 	}
 
 	// 心跳上报
-	for i := 0; i < pr.Count; i++ {
+	ticker := time.NewTicker(pr.HeartbeatIntervalSec)
+	for range ticker.C {
 		hbRequest := &api.InstanceHeartbeatRequest{}
 		hbRequest.Namespace = pr.Namespace
 		hbRequest.Service = pr.Service
@@ -66,7 +68,6 @@ func (pr *PolarisRegister) RegisterAndHeartbeat() {
 		if err = pr.ProviderAPI.Heartbeat(hbRequest); nil != err {
 			grpclog.Fatalf("fail to heartbeat, error is %v", err)
 		}
-		<-time.After(1500 * time.Millisecond)
 	}
 }
 

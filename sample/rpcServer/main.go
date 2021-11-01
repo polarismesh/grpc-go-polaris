@@ -47,7 +47,7 @@ func (h *Hello) SayHello(ctx context.Context, req *hello.HelloRequest) (*hello.H
 }
 
 func main() {
-	namespace, service, token, ip, port, count, labels := processArgs()
+	namespace, service, token, ip, port, heartInterval, labels := processArgs()
 
 	//创建并设置 Polaris 配置对象
 	configuration := api.NewConfiguration()
@@ -96,13 +96,13 @@ func main() {
 
 	//注册服务到 Polaris
 	register := &polaris.PolarisRegister{
-		Namespace:    namespace,
-		Service:      service,
-		ServiceToken: token,
-		Host:         ip,
-		Port:         port,
-		Count:        count,
-		ProviderAPI:  provider,
+		Namespace:            namespace,
+		Service:              service,
+		ServiceToken:         token,
+		Host:                 ip,
+		Port:                 port,
+		HeartbeatIntervalSec: time.Duration(heartInterval * int(time.Second)),
+		ProviderAPI:          provider,
 	}
 	go register.RegisterAndHeartbeat()
 
@@ -128,16 +128,16 @@ func processArgs() (string, string, string, string, int, int, map[string]string)
 	if nil != err {
 		log.Fatalf("fail to convert port %s to int, err %v", argsWithoutProg[4], err)
 	}
-	count, err := strconv.Atoi(argsWithoutProg[5])
+	heartInterval, err := strconv.Atoi(argsWithoutProg[5])
 	if nil != err {
-		log.Fatalf("fail to convert count %s to int, err %v", argsWithoutProg[5], err)
+		log.Fatalf("fail to convert heartInterval %s to int, err %v", argsWithoutProg[5], err)
 	}
 	labels, err := parseLabels(argsWithoutProg[6])
 	if nil != err {
 		log.Fatalf("fail to parse label string %s, err %v", argsWithoutProg[6], err)
 	}
 
-	return namespace, service, token, ip, port, count, labels
+	return namespace, service, token, ip, port, heartInterval, labels
 }
 
 //解析标签列表
