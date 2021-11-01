@@ -51,13 +51,13 @@ func (mockPolarisProducerAPI) Destroy() {}
 
 func newMockPolarisRegister() *PolarisRegister {
 	return &PolarisRegister{
-		Namespace:            "test-ns",
-		Service:              "test-service",
-		ServiceToken:         "test-token",
-		Host:                 "test-ip",
-		Port:                 8000,
-		HeartbeatIntervalSec: time.Duration(3 * time.Second),
-		ProviderAPI:          newMockPolarisProducerAPI(),
+		Namespace:         "test-ns",
+		Service:           "test-service",
+		ServiceToken:      "test-token",
+		Host:              "test-ip",
+		Port:              8000,
+		HeartbeatInterval: time.Duration(3 * time.Second),
+		ProviderAPI:       newMockPolarisProducerAPI(),
 	}
 }
 

@@ -47,7 +47,7 @@ func (h *Hello) SayHello(ctx context.Context, req *hello.HelloRequest) (*hello.H
 }
 
 func main() {
-	namespace, service, token, ip, port, heartInterval, labels := processArgs()
+	namespace, service, token, ip, port, heartIntervalSec, labels := processArgs()
 
 	//创建并设置 Polaris 配置对象
 	configuration := api.NewConfiguration()
@@ -96,13 +96,13 @@ func main() {
 
 	//注册服务到 Polaris
 	register := &polaris.PolarisRegister{
-		Namespace:            namespace,
-		Service:              service,
-		ServiceToken:         token,
-		Host:                 ip,
-		Port:                 port,
-		HeartbeatIntervalSec: time.Duration(heartInterval * int(time.Second)),
-		ProviderAPI:          provider,
+		Namespace:         namespace,
+		Service:           service,
+		ServiceToken:      token,
+		Host:              ip,
+		Port:              port,
+		HeartbeatInterval: time.Duration(heartIntervalSec * int(time.Second)),
+		ProviderAPI:       provider,
 	}
 	go register.RegisterAndHeartbeat()
 
@@ -117,7 +117,7 @@ func processArgs() (string, string, string, string, int, int, map[string]string)
 	argsWithoutProg := os.Args[1:]
 	if len(argsWithoutProg) < 6 {
 		log.Fatalf("using %s <namespace> <service> <service-token> "+
-			"<ip> <port> <label k1:label v1,label k2:label v2,...>", os.Args[0])
+			"<ip> <port> <heartIntervalSec> <label k1:label v1,label k2:label v2,...>", os.Args[0])
 	}
 	var err error
 	namespace := argsWithoutProg[0]
@@ -128,7 +128,7 @@ func processArgs() (string, string, string, string, int, int, map[string]string)
 	if nil != err {
 		log.Fatalf("fail to convert port %s to int, err %v", argsWithoutProg[4], err)
 	}
-	heartInterval, err := strconv.Atoi(argsWithoutProg[5])
+	heartIntervalSec, err := strconv.Atoi(argsWithoutProg[5])
 	if nil != err {
 		log.Fatalf("fail to convert heartInterval %s to int, err %v", argsWithoutProg[5], err)
 	}
@@ -137,7 +137,7 @@ func processArgs() (string, string, string, string, int, int, map[string]string)
 		log.Fatalf("fail to parse label string %s, err %v", argsWithoutProg[6], err)
 	}
 
-	return namespace, service, token, ip, port, heartInterval, labels
+	return namespace, service, token, ip, port, heartIntervalSec, labels
 }
 
 //解析标签列表

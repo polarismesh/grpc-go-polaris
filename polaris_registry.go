@@ -32,13 +32,13 @@ type Register interface {
 
 // Polaris限流器
 type PolarisRegister struct {
-	Namespace            string
-	Service              string
-	ServiceToken         string
-	Host                 string
-	Port                 int
-	HeartbeatIntervalSec time.Duration
-	ProviderAPI          api.ProviderAPI
+	Namespace         string
+	Service           string
+	ServiceToken      string
+	Host              string
+	Port              int
+	HeartbeatInterval time.Duration
+	ProviderAPI       api.ProviderAPI
 }
 
 // 服务注册和心跳上报
@@ -57,7 +57,7 @@ func (pr *PolarisRegister) RegisterAndHeartbeat() {
 	}
 
 	// 心跳上报
-	ticker := time.NewTicker(pr.HeartbeatIntervalSec)
+	ticker := time.NewTicker(pr.HeartbeatInterval)
 	for range ticker.C {
 		hbRequest := &api.InstanceHeartbeatRequest{}
 		hbRequest.Namespace = pr.Namespace
