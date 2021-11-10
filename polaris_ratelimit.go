@@ -19,18 +19,19 @@ package grpcpolaris
 
 import (
 	"context"
+	"strings"
 
+	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
-
-	"github.com/polarismesh/polaris-go/api"
 )
 
 // 服务端限流器接口
 type Limiter interface {
-	Limit() bool
+	// Limit If the current is limited, return true and an error message
+	Limit() (bool, error)
 }
 
 // Polaris限流器
@@ -42,7 +43,7 @@ type PolarisLimiter struct {
 }
 
 // 限流方法
-func (pl *PolarisLimiter) Limit() bool {
+func (pl *PolarisLimiter) Limit() (bool, error) {
 	quotaReq := api.NewQuotaRequest()
 	quotaReq.SetNamespace(pl.Namespace)
 	quotaReq.SetService(pl.Service)
@@ -50,13 +51,18 @@ func (pl *PolarisLimiter) Limit() bool {
 	//调用配额获取接口
 	future, err := pl.LimitAPI.GetQuota(quotaReq)
 	if nil != err {
-		grpclog.Fatalf("fail to getQuota, err %v", err)
+		return false, err
 	}
 	resp := future.Get()
+
+	if strings.Compare("", resp.Info) != 0 {
+		grpclog.Infof("get quota response info : %s", resp.Info)
+	}
+
 	if api.QuotaResultOk == resp.Code {
-		return false
+		return false, nil
 	} else {
-		return true
+		return true, nil
 	}
 }
 
@@ -64,7 +70,11 @@ func (pl *PolarisLimiter) Limit() bool {
 func UnaryServerInterceptor(limiter Limiter) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		if limiter.Limit() {
+		rejected, err := limiter.Limit()
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		if rejected {
 			return nil, status.Errorf(codes.ResourceExhausted,
 				"%s is rejected by polaris rate limiter, please retry later.", info.FullMethod)
 		}
@@ -76,7 +86,11 @@ func UnaryServerInterceptor(limiter Limiter) grpc.UnaryServerInterceptor {
 func StreamServerInterceptor(limiter Limiter) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream,
 		info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		if limiter.Limit() {
+		rejected, err := limiter.Limit()
+		if err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
+		if rejected {
 			return status.Errorf(codes.ResourceExhausted,
 				"%s is rejected by polaris rate limiter, please retry later.", info.FullMethod)
 		}
