@@ -1,10 +1,12 @@
 package grpcpolaris
 
 import (
-	"github.com/polarismesh/polaris-go/api"
-	"github.com/polarismesh/polaris-go/pkg/model"
 	"log"
 	"testing"
+	"time"
+
+	"github.com/polarismesh/polaris-go/api"
+	"github.com/polarismesh/polaris-go/pkg/model"
 )
 
 // mockPolarisProducerAPI mock 北极星SDK Limit
@@ -49,13 +51,13 @@ func (mockPolarisProducerAPI) Destroy() {}
 
 func newMockPolarisRegister() *PolarisRegister {
 	return &PolarisRegister{
-		Namespace:    "test-ns",
-		Service:      "test-service",
-		ServiceToken: "test-token",
-		Host:         "test-ip",
-		Port:         8000,
-		Count:        1,
-		ProviderAPI:  newMockPolarisProducerAPI(),
+		Namespace:         "test-ns",
+		Service:           "test-service",
+		ServiceToken:      "test-token",
+		Host:              "test-ip",
+		Port:              8000,
+		HeartbeatInterval: time.Duration(3 * time.Second),
+		ProviderAPI:       newMockPolarisProducerAPI(),
 	}
 }
 
