@@ -3,7 +3,7 @@ module github.com/polarismesh/grpc-go-polaris
 go 1.13
 
 require (
-	github.com/polarismesh/polaris-go v0.9.0
+	github.com/polarismesh/polaris-go v1.0.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.5.5 // indirect
