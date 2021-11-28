@@ -68,6 +68,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/polarismesh/polaris-go v0.9.0 h1:JprO5/mCbxLfUR1oacuA423BAnmjhjpdU0o6rsAVfH4=
 github.com/polarismesh/polaris-go v0.9.0/go.mod h1:uzNFDShCN+UhBncwwNqNVhPpI1ZXYwPlb9N/aE+/vE0=
+github.com/polarismesh/polaris-go v1.0.0 h1:JIBANM5nfhu5knbg269kldQ58bSSV7a6AzTQk1OZwt8=
+github.com/polarismesh/polaris-go v1.0.0/go.mod h1:uzNFDShCN+UhBncwwNqNVhPpI1ZXYwPlb9N/aE+/vE0=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d h1:zE9ykElWQ6/NYmHa3jpm/yHnI4xSofP+UP6SpjHcSeM=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=

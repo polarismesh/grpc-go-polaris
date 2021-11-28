@@ -19,7 +19,7 @@ import (
 	polarispb "github.com/polarismesh/polaris-go/pkg/model/pb"
 	namingpb "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
 
-	hello "github.com/polarismesh/grpc-go-polaris/sample/model/grpc"
+	hello "github.com/polarismesh/grpc-go-polaris/examples/quickstart/model/grpc"
 )
 
 // TestMain
