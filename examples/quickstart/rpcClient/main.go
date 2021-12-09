@@ -38,10 +38,10 @@ import (
 // ./rpcServer Development/yourService sendCount sendInterval yourMetadata
 
 func main() {
-	target, sendCount, sendInterval := processArgs()
+	namespace, service, sendCount, sendInterval := processArgs()
 
-	//使用配置获取 Polaris SDK 对象
-	//Polaris Consumer API
+	// 使用配置获取 Polaris SDK 对象
+	// Polaris Consumer API
 	consumer, err := api.NewConsumerAPI()
 	if err != nil {
 		log.Fatalf("api.NewConsumerAPIByConfig err(%v)", err)
@@ -57,7 +57,7 @@ func main() {
 	//grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, fmt.Sprintf("polaris://%s", target),
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("polaris:///%s?namespace=%s", service, namespace),
 		[]grpc.DialOption{
 			grpc.WithInsecure(),
 		}...)
@@ -76,23 +76,24 @@ func main() {
 }
 
 //解析启动参数
-func processArgs() (string, int, int) {
+func processArgs() (string, string, int, int) {
 	params := os.Args[1:]
 	if len(params) < 3 {
 		log.Fatalf("using %s <target> <sendCount> <sendInterval> ", os.Args[0])
 	}
 
-	target := params[0]
-	sendCount, err := strconv.Atoi(params[1])
+	namespace := params[0]
+	service := params[1]
+	sendCount, err := strconv.Atoi(params[2])
 	if nil != err {
-		log.Fatalf("fail to convert sendCount %s to int, err %v", params[1], err)
+		log.Fatalf("fail to convert sendCount %s to int, err %v", params[2], err)
 	}
-	sendInterval, err := strconv.Atoi(params[2])
+	sendInterval, err := strconv.Atoi(params[3])
 	if nil != err {
-		log.Fatalf("fail to convert sendInterval %s to int, err %v", params[2], err)
+		log.Fatalf("fail to convert sendInterval %s to int, err %v", params[3], err)
 	}
 
-	return target, sendCount, sendInterval
+	return namespace, service, sendCount, sendInterval
 }
 
 //解析服务元数据
