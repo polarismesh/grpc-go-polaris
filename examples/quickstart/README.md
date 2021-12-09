@@ -1,24 +1,26 @@
-# grpc go polaris 快速入门项目
+# grpc go polaris quick start project
 
-提供 grpc client 端 server 端应用示例，演示 grpc 应用如何快速接入北极星。
+English | [简体中文](./README-zh.md)
 
-## 目录介绍
+Provide grpc client, server application examples to demonstrate how grpc applications can quickly connect to Polaris.
 
-- rpcServer: server 端示例，提供 grpc 服务。同时启动后连接北极星，进行服务注册，并发送心跳保持健康状态，应用退出时会进行反注册。
-- rpcClient: client 端示例，调用 server 中的 grpc 服务。通过北极星服务发现拿到 server 的地址。
-- model: 示例中使用的 pb 定义。 
+## Catalog Introduction
 
-## 如何构建
+- rpcServer: In the server demo, an example of grpc server is provided. At the same time, connect to Polaris after startup, register for the service, and send a heartbeat to maintain a healthy state, and de-register when the application exits.
+- rpcClient: An example on the client side, calling the grpc service in the server. Find the address of the server through the Polaris service.
+- model: The definition of pb used in the example.
 
-依赖 go mod 进行构建。
+## How to build
 
-构建 server：
+Rely on go mod to build.
+
+build server：
 ```shell
 cd rpcServer
 go build -o server
 ```
 
-构建 client：
+build client：
 
 ```shell
 cd rpcClient
@@ -26,17 +28,17 @@ go build -o client
 ```
 
 
-## 如何使用
+## How to use
 
-### 创建服务
+### Create service
 
-预先通过北极星控制台创建对应的服务，如果是通过本地一键安装包的方式安装，直接在浏览器通过127.0.0.1:8091打开控制台。
+Create the corresponding service through the Polaris console in advance. If it is installed through a local one-click installation package, open the console directly in the browser through `127.0.0.1:8090`.
 
 ![img.png](../../doc/create_service.png)
 
-### 修改配置
+### Modify setting
 
-修改配置，填写北极星 server 的地址。
+Modify the configuration and fill in the address of the Polaris server.
 
 ```yaml
 global:
@@ -45,25 +47,26 @@ global:
     - 127.0.0.1:8091
 ```
 
-### 执行程序
+### Execute program
 
-运行 server：
+Run server：
 ```shell
 ./server default DemoService 127.0.0.1 9090 2
 ```
-启动参数解释：
-- server 注册的北极星服务所在的命名空间。
-- server 注册的北极星服务。
-- server 注册的服务实例 ip。
-- server 注册的服务实例 port。
-- server 上报心跳的间隔。
+Start parameter explanation：
+- The namespace of the registered service.
+- Registered service name.
+- Registered service instance ip.
+- Registered service instance port.
+- The interval at which heartbeats are reported.
 
-运行 client：
+Run client：
 
 ```shell
-./client default/DemoService 5 1
+./client default DemoService 5 1
 ```
-启动参数解释：
-- client 调用的 target，格式是: `{namespace}/{service}`，namespace、service 分别表示北极星的命名空间和服务名。
-- 发送的请求数。
-- client 从北极星同步服务实例的间隔。
+Start parameter explanation：
+- The namespace which the client calls the service。
+- Client calling service name.
+- The number of requests sent.
+- The interval at which the client synchronizes service instances from Polaris.
