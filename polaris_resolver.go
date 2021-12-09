@@ -159,8 +159,6 @@ var (
 	// regexPolarisV1 v1版的target形式: polaris://default/grpc.service
 	// 服务名限制 只允许数字、英文字母、.、-、:、_，限制128个字符
 	regexPolarisV1 = regexp.MustCompile("^([a-zA-Z0-9_:.-]{1,128})/([a-zA-Z0-9_:.-]{1,128})$")
-	// regexPolarisNamespace
-	regexPolaris = regexp.MustCompile(`^([a-zA-Z0-9_:.-]{1,128})$`)
 )
 
 // parseTarget 接收两种target形式
@@ -181,11 +179,5 @@ func parseTarget(target resolver.Target) (namespace, service string, err error) 
 	}
 	service = uri.Path
 	namespace = uri.Query().Get("namespace")
-	if !regexPolaris.MatchString(namespace) {
-		return "", "", fmt.Errorf("invalid target:%s, err:%w", target.Endpoint, errAddrMisMatch)
-	}
-	if !regexPolaris.MatchString(service) {
-		return "", "", fmt.Errorf("invalid target:%s, err:%w", target.Endpoint, errAddrMisMatch)
-	}
 	return namespace, service, nil
 }

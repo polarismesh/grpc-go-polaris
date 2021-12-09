@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -37,10 +36,6 @@ import (
 // go build -mod=vendor
 // 命令行格式：./rpcClient <target> <sendCount> <sendInterval> <metadata k1:metadata v1,metadata k2:metadata v2,...>
 // ./rpcServer Development/yourService sendCount sendInterval yourMetadata
-
-var (
-	regexPolaris, _ = regexp.Compile("^([a-zA-Z0-9_:.-]{1,128})/([a-zA-Z0-9_:.-]{1,128})$")
-)
 
 func main() {
 	target, sendCount, sendInterval := processArgs()
@@ -88,9 +83,6 @@ func processArgs() (string, int, int) {
 	}
 
 	target := params[0]
-	if !regexPolaris.MatchString(target) {
-		log.Fatalf("using invalid target: %s", os.Args[0])
-	}
 	sendCount, err := strconv.Atoi(params[1])
 	if nil != err {
 		log.Fatalf("fail to convert sendCount %s to int, err %v", params[1], err)
