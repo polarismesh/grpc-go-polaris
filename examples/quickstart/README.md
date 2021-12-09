@@ -52,8 +52,8 @@ global:
 ./server default DemoService 127.0.0.1 9090 2
 ```
 启动参数解释：
-- server 注册的北极星服务所在的命名空间。
-- server 注册的北极星服务。
+- server 注册的服务所在命名空间。
+- server 注册的服务名。
 - server 注册的服务实例 ip。
 - server 注册的服务实例 port。
 - server 上报心跳的间隔。
@@ -61,9 +61,10 @@ global:
 运行 client：
 
 ```shell
-./client default/DemoService 5 1
+./client default DemoService 5 1
 ```
 启动参数解释：
-- client 调用的 target，格式是: `{namespace}/{service}`，namespace、service 分别表示北极星的命名空间和服务名。
+- client 调用服务所在命名空间。
+- client 调用服务名。
 - 发送的请求数。
 - client 从北极星同步服务实例的间隔。
