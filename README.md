@@ -22,11 +22,11 @@ gRPC-Go-Polaris implements the interfaces on gRPC-Go, to access polarismesh func
 
 ### Prerequisites
 
-- **[Go][]**: any one of the **three latest major** [releases][go-releases].
+- **Go**: any one of the **three latest major** [releases](https://go.dev/doc/devel/release).
 
 ### Installation
 
-With [Go module][] support (Go 1.11+), simply add the following import
+With [Go module](https://github.com/golang/go/wiki/Modules) support (Go 1.11+), simply add the following import
 
 ```go
 import "github.com/polarismesh/grpc-go-polaris"
