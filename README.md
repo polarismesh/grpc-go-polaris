@@ -15,7 +15,7 @@ gRPC-Go-Polaris provides a series of components based on gRPC-Go framework, deve
 
 ## Base Architecture
 
-![arch](doc\arch.png)
+![arch](doc/arch.png)
 gRPC-Go-Polaris implements the interfaces on gRPC-Go, to access polarismesh functions.
 
 ## How To Use
