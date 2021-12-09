@@ -39,7 +39,7 @@ import (
 // ./rpcServer Development/yourService sendCount sendInterval yourMetadata
 
 var (
-	regexPolaris, _ = regexp.Compile("^(Development|Production|Pre-release|Test)/([a-zA-Z0-9_:.-]{1,128})$")
+	regexPolaris, _ = regexp.Compile("^([a-zA-Z0-9_:.-]{1,128})/([a-zA-Z0-9_:.-]{1,128})$")
 )
 
 func main() {
