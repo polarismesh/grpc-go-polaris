@@ -49,7 +49,7 @@ global:
 
 运行 server：
 ```shell
-./server Production DemoService 127.0.0.1 9090 2
+./server default DemoService 127.0.0.1 9090 2
 ```
 启动参数解释：
 - server 注册的北极星服务所在的命名空间。
@@ -61,7 +61,7 @@ global:
 运行 client：
 
 ```shell
-./client Production/DemoService 5 1
+./client default/DemoService 5 1
 ```
 启动参数解释：
 - client 调用的 target，格式是: `{namespace}/{service}`，namespace、service 分别表示北极星的命名空间和服务名。
