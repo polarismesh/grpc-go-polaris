@@ -17,7 +17,7 @@ gRPC-Go-Polaris 提供了基于 gRPC-Go 扩展的一系列服务治理组件，�
 
 ## 基本架构
 
-![arch](doc\arch.png)
+![arch](doc/arch.png)
 gRPC-Go-Polaris 主要是在 gRPC-Go 基础上进行接口的扩展，以支持服务治理相关的能力。
 
 ## 如何使用

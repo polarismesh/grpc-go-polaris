@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"regexp"
 	"time"
 
 	"google.golang.org/grpc/attributes"
@@ -155,38 +154,18 @@ func (pr *polarisResolver) Close() {
 	pr.cancel()
 }
 
-var (
-	// regexPolarisV1 v1版的target形式: polaris://Production/grpc.service
-	// 服务名限制 只允许数字、英文字母、.、-、:、_，限制128个字符
-	regexPolarisV1 = regexp.MustCompile("^(Development|Production|Pre-release|Test)/([a-zA-Z0-9_:.-]{1,128})$")
-	// regexPolarisNamespace
-	regexPolarisNamespace = regexp.MustCompile(`^(Development|Production|Pre-release|Test)$`)
-	regexPolarisService   = regexp.MustCompile(`^([a-zA-Z0-9_:.-]{1,128})$`)
-)
-
-// parseTarget 接收两种target形式
-// v1版: polaris://Production/grpc.service
-// v2版: polaris:///grpc.service?namespace=Production URI形式, 更具有扩展性,
+// parseTarget 接收 target 的形式如下，不填 namespace 则默认使用 default 命名空间
+// polaris://grpc.service?namespace=default
 // 更符合(gRPC的规范)[https://github.com/grpc/grpc/blob/master/doc/naming.md#name-syntax]
 func parseTarget(target resolver.Target) (namespace, service string, err error) {
-	// Authority不应该当做namespace来使用, 正确的做法是使用Endpoint URI形式传递namespace, 这里兼容一下老的
-	if full := fmt.Sprintf("%s/%s", target.Authority, target.Endpoint); regexPolarisV1.MatchString(full) {
-		groups := regexPolarisV1.FindStringSubmatch(full)
-		namespace = groups[1]
-		service = groups[2]
-		return namespace, service, nil
-	}
 	uri, err := url.Parse(target.Endpoint)
 	if err != nil {
 		return "", "", fmt.Errorf("invalid target:%s, err:%w", target.Endpoint, errAddrMisMatch)
 	}
 	service = uri.Path
 	namespace = uri.Query().Get("namespace")
-	if !regexPolarisNamespace.MatchString(namespace) {
-		return "", "", fmt.Errorf("invalid target:%s, err:%w", target.Endpoint, errAddrMisMatch)
-	}
-	if !regexPolarisService.MatchString(service) {
-		return "", "", fmt.Errorf("invalid target:%s, err:%w", target.Endpoint, errAddrMisMatch)
+	if namespace == "" {
+		namespace = "default"
 	}
 	return namespace, service, nil
 }
