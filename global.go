@@ -18,14 +18,15 @@
 package grpcpolaris
 
 import (
+	"sync"
+
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
-	"sync"
 )
 
 const (
 	defaultNamespace = "default"
-	defaultTtl       = 20
+	defaultTTL       = 20
 )
 
 var (

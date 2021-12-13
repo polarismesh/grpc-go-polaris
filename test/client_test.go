@@ -20,14 +20,15 @@ package test
 import (
 	"context"
 	"fmt"
+	"log"
+	"net"
+	"time"
+
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/test/hello"
 	"github.com/polarismesh/grpc-go-polaris/test/mock"
 	"google.golang.org/grpc"
 	"gopkg.in/check.v1"
-	"log"
-	"net"
-	"time"
 )
 
 type clientTestingSuite struct {
@@ -49,7 +50,7 @@ func (s *clientTestingSuite) TearDownSuite(c *check.C) {
 
 func (s *serverTestingSuite) TestClientCall(c *check.C) {
 	srv := polaris.NewServer(
-		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTtl(2))
+		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
 	hello.RegisterHelloServer(srv.GRPCServer(), &helloServer{})
 	listen, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {

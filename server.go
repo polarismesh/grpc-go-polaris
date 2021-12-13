@@ -20,15 +20,16 @@ package grpcpolaris
 import (
 	"context"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/polarismesh/polaris-go/api"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/grpclog"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/polarismesh/polaris-go/api"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 )
 
 // Server encapsulated server with gRPC option
@@ -52,7 +53,7 @@ func (s *serverOptions) setDefault() {
 		s.namespace = defaultNamespace
 	}
 	if s.ttl == 0 {
-		s.ttl = defaultTtl
+		s.ttl = defaultTTL
 	}
 }
 
@@ -112,8 +113,8 @@ func WithServerHost(host string) ServerOption {
 	})
 }
 
-// WithTtl set the ttl to register instance
-func WithTtl(ttl int) ServerOption {
+// WithTTL set the ttl to register instance
+func WithTTL(ttl int) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.ttl = ttl
 	})
@@ -266,6 +267,7 @@ func (s *Server) Serve(lis net.Listener) error {
 			}
 			s.serverOptions.port = port
 		}
+
 		registerContext.registerRequests = make([]*api.InstanceRegisterRequest, 0, len(svcInfos))
 		registerContext.providerAPI = api.NewProviderAPIByContext(polarisCtx)
 		for name := range svcInfos {

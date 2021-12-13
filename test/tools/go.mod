@@ -1,4 +1,4 @@
-module github.com/polarismesh/polaris-go/test/tools
+module github.com/polarismesh/grpc-go-polaris/test/tools
 
 go 1.14
 

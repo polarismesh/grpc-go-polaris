@@ -22,8 +22,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/grpc"
 	"strings"
+
+	"google.golang.org/grpc"
 )
 
 // DialOption dialOptions for gRPC-Go-Polaris
@@ -48,7 +49,7 @@ func newFuncDialOption(f func(*dialOptions)) *funcDialOption {
 }
 
 type dialOptions struct {
-	gRPCDialOptions []grpc.DialOption `json:"-"`
+	gRPCDialOptions []grpc.DialOption
 	Namespace       string            `json:"Namespace"`
 	DstMetadata     map[string]string `json:"dst_metadata"`
 	SrcMetadata     map[string]string `json:"src_metadata"`
@@ -64,30 +65,35 @@ func WithGRPCDialOptions(opts ...grpc.DialOption) DialOption {
 	})
 }
 
+// WithClientNamespace set the namespace for dial service
 func WithClientNamespace(namespace string) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.Namespace = namespace
 	})
 }
 
+// WithDstMetadata set the dstMetadata for dial service routing
 func WithDstMetadata(dstMetadata map[string]string) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.DstMetadata = dstMetadata
 	})
 }
 
+// WithSrcMetadata set the srcMetadata for dial service routing
 func WithSrcMetadata(srcMetadata map[string]string) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.SrcMetadata = srcMetadata
 	})
 }
 
+// WithSrcService set the srcMetadata for dial service routing
 func WithSrcService(srcService string) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.SrcService = srcService
 	})
 }
 
+// WithHeaderPrefix set the header filter to get the header values to routing
 func WithHeaderPrefix(headerPrefix []string) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.HeaderPrefix = headerPrefix

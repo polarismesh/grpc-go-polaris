@@ -18,11 +18,12 @@
 package test
 
 import (
-	"gopkg.in/check.v1"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"testing"
+
+	"gopkg.in/check.v1"
 )
 
 //Test 测试用例主入口

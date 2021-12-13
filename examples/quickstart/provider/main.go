@@ -19,16 +19,17 @@ package main
 
 import (
 	"context"
-	polaris "github.com/polarismesh/grpc-go-polaris"
-	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
 	"log"
 	"net"
+
+	polaris "github.com/polarismesh/grpc-go-polaris"
+	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
 )
 
-// Hello Hello服务结构体
+// EchoService gRPC echo service struct
 type EchoService struct{}
 
-// SayHello Hello服务测试方法
+// Echo gRPC testing method
 func (h *EchoService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
 	return &pb.EchoResponse{Value: "echo: " + req.Value}, nil
 }
