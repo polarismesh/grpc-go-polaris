@@ -1,72 +1,85 @@
-# grpc go polaris quick start project
+# gRPC-Go-Polaris QuickStart example
 
 English | [简体中文](./README-zh.md)
 
-Provide grpc client, server application examples to demonstrate how grpc applications can quickly connect to Polaris.
+Provide consumer and provider applications which based on gRPC framework, to show how to make gRPC application access polaris rapidly.
 
-## Catalog Introduction
+## Content
 
-- rpcServer: In the server demo, an example of grpc server is provided. At the same time, connect to Polaris after startup, register for the service, and send a heartbeat to maintain a healthy state, and de-register when the application exits.
-- rpcClient: An example on the client side, calling the grpc service in the server. Find the address of the server through the Polaris service.
-- model: The definition of pb used in the example.
+- provider: gRPC server application, demo service register, deregister, heartbeat.
+- consumer: gRPC client application, demo service discovery, and load balance.
 
-## How to build
+## Instruction
 
-Rely on go mod to build.
+### Configuration
 
-build server：
-```shell
-cd rpcServer
-go build -o server
-```
-
-build client：
-
-```shell
-cd rpcClient
-go build -o client
-```
-
-
-## How to use
-
-### Create service
-
-Create the corresponding service through the Polaris console in advance. If it is installed through a local one-click installation package, open the console directly in the browser through `127.0.0.1:8090`.
-
-![img.png](../../doc/create_service.png)
-
-### Modify setting
-
-Modify the configuration and fill in the address of the Polaris server.
+Modify ```polaris.yaml``` in ```provider``` and ```consumer```, which is showed as below:
+besides, ```${ip}``` and ```${port}``` is the address of polaris server.
 
 ```yaml
 global:
   serverConnector:
     addresses:
-    - 127.0.0.1:8091
+    - ${ip}:${port}
 ```
 
-### Execute program
+## How to build
 
-Run server：
-```shell
-./server default DemoService 127.0.0.1 9090 2
-```
-Start parameter explanation：
-- The namespace of the registered service.
-- Registered service name.
-- Registered service instance ip.
-- Registered service instance port.
-- The interval at which heartbeats are reported.
-
-Run client：
+Build provider with go mod:
 
 ```shell
-./client default DemoService 5 1
+cd provider
+go build -o provider
 ```
-Start parameter explanation：
-- The namespace which the client calls the service。
-- Client calling service name.
-- The number of requests sent.
-- The interval at which the client synchronizes service instances from Polaris.
+
+Build consumer with go mod:
+
+```shellq
+cd consumer
+go build -o consumer
+```
+
+## Start application
+
+### Start Provider
+
+go mod compile and build:
+```shell
+cd provider
+go build -o provider
+```
+
+run binary executable：
+
+```shell
+./provider
+```
+
+### Start Consumer
+
+go mod compile and build:
+```shell
+cd consumer
+go build -o consumer
+```
+
+run binary executable：
+
+```shell
+./consumer
+```
+
+### Verify
+
+#### Check polaris console
+
+Login into polaris console, and check the instances in Service `EchoService`.
+
+#### Invoke by http call
+
+Invoke http call，replace `${app.port}` to the consumer port (16011 by default).
+```shell
+curl -L -X GET 'http://localhost:47080/quickstart/feign?msg=hello_world''
+```
+
+expect：`echo: hello_world`
