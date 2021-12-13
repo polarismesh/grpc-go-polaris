@@ -20,15 +20,16 @@ package mock
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
+	"net"
+	"sync"
+
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/uuid"
 	"github.com/polarismesh/polaris-go/pkg/model"
 	namingpb "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
 	"google.golang.org/grpc"
-	"io"
-	"log"
-	"net"
-	"sync"
 )
 
 var (

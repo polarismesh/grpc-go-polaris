@@ -22,8 +22,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/grpc"
 	"strings"
+
+	"google.golang.org/grpc"
 )
 
 // DialOption dialOptions for gRPC-Go-Polaris

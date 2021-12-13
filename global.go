@@ -18,9 +18,10 @@
 package grpcpolaris
 
 import (
+	"sync"
+
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
-	"sync"
 )
 
 const (

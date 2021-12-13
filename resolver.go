@@ -22,10 +22,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"sync"
+
 	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
-	"sync"
 )
 
 type resolverBuilder struct {

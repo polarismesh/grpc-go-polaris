@@ -19,10 +19,11 @@ package main
 
 import (
 	"context"
-	polaris "github.com/polarismesh/grpc-go-polaris"
-	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
 	"log"
 	"net"
+
+	polaris "github.com/polarismesh/grpc-go-polaris"
+	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
 )
 
 // Hello Hello服务结构体

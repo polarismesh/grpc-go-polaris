@@ -20,13 +20,14 @@ package test
 import (
 	"context"
 	"fmt"
+	"log"
+	"net"
+	"time"
+
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/test/hello"
 	"github.com/polarismesh/grpc-go-polaris/test/mock"
 	"gopkg.in/check.v1"
-	"log"
-	"net"
-	"time"
 )
 
 const (

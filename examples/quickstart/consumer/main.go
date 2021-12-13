@@ -20,10 +20,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
-	"google.golang.org/grpc"
 	"log"
 	"net/http"
+
+	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
+	"google.golang.org/grpc"
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 )
