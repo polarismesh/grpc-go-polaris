@@ -1,72 +1,86 @@
-# grpc go polaris 快速入门项目
-
-提供 grpc client 端 server 端应用示例，演示 grpc 应用如何快速接入北极星。
+# gRPC-Go-Polaris 快速入门
 
 [English](./README.md) | 简体中文
 
+提供基于gRPC框架开发的应用示例（包含consumer和provider两个应用），演示使用 gRPC 框架开发的应用如何快速接入北极星。
+
 ## 目录介绍
 
-- rpcServer: server 端示例，提供 grpc 服务。同时启动后连接北极星，进行服务注册，并发送心跳保持健康状态，应用退出时会进行反注册。
-- rpcClient: client 端示例，调用 server 中的 grpc 服务。通过北极星服务发现拿到 server 的地址。
-- model: 示例中使用的 pb 定义。
+- provider: gRPC 服务端示例，演示服务实例注册、反注册、以及心跳上报保活的功能。
+- consumer: gRPC 客户端示例，演示服务发现、负载均衡、以及服务调用的功能。
 
-## 如何构建
-
-依赖 go mod 进行构建。
-
-构建 server：
-```shell
-cd rpcServer
-go build -o server
-```
-
-构建 client：
-
-```shell
-cd rpcClient
-go build -o client
-```
-
-
-## 如何使用
-
-### 创建服务
-
-预先通过北极星控制台创建对应的服务，如果是通过本地一键安装包的方式安装，直接在浏览器通过 `127.0.0.1:8090` 打开控制台。
-
-![img.png](../../doc/create_service.png)
+## 使用说明
 
 ### 修改配置
 
-修改配置，填写北极星 server 的地址。
+在 ```provider``` 以及 ```consumer``` 两个项目中，修改```polaris.yaml```，修改后配置如下所示。
+其中，```${ip}```和```${port}```为Polaris后端服务的IP地址与端口号。
 
 ```yaml
 global:
   serverConnector:
     addresses:
-    - 127.0.0.1:8091
+    - ${ip}:${port}
 ```
 
-### 执行程序
+## 如何构建
 
-运行 server：
+依赖 go mod 进行构建。
+
+构建 provider：
 ```shell
-./server default DemoService 127.0.0.1 9090 2
+cd provider
+go build -o provider
 ```
-启动参数解释：
-- server 注册的服务所在命名空间。
-- server 注册的服务名。
-- server 注册的服务实例 ip。
-- server 注册的服务实例 port。
-- server 上报心跳的间隔。
 
-运行 client：
+构建 consumer：
+
+```shellq
+cd consumer
+go build -o consumer
+```
+
+## 启动样例
+
+### 启动Provider
+
+go mod 编译打包：
+```shell
+cd provider
+go build -o provider
+```
+
+然后运行生成的二进制文件：
 
 ```shell
-./client default DemoService 5 1
+./provider
 ```
-启动参数解释：
-- client 调用服务所在命名空间。
-- client 调用服务名。
-- 发送的请求数。
-- client 从北极星同步服务实例的间隔。
+
+### 启动Consumer
+
+go mod 编译打包：
+```shell
+cd consumer
+go build -o consumer
+```
+
+然后运行生成的二进制文件：
+
+```shell
+./consumer
+```
+
+### 验证
+
+#### 控制台验证
+
+登录polaris控制台，可以看到EchoService服务下存在对应的provider实例。
+
+#### HTTP调用
+
+执行http调用，其中`${app.port}`替换为consumer的监听端口（默认为16011）。
+```shell
+curl -L -X GET 'http://localhost:${app.port}/echo?value=hello_world''
+```
+
+预期返回值：`echo: hello_world`

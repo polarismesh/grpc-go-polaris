@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option go_package = "quickstart/pb";
+
+package quickstart;
+
+service EchoServer {
+  rpc Echo(EchoRequest) returns (EchoResponse) {}
+  rpc Echo2(EchoRequest) returns (EchoResponse) {}
+  rpc Echo1(EchoRequest) returns (EchoResponse) {}
+}
+
+service EchoServer1 {
+  rpc Echo(EchoRequest) returns (EchoResponse) {}
+}
+
+message EchoRequest {
+  string value = 1;
+}
+
+message EchoResponse {
+  string value = 1;
+}
