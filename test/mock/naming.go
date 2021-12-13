@@ -166,7 +166,7 @@ func (n *namingServer) Discover(stream namingpb.PolarisGRPC_DiscoverServer) erro
 			log.Printf("Discover: server recv error %v\n", err)
 			return err
 		}
-		log.Printf("Discover: server recv request %v\n", req)
+		//log.Printf("Discover: server recv request %v\n", req)
 		var resp *namingpb.DiscoverResponse
 		resp = &namingpb.DiscoverResponse{
 			Type:    namingTypeReqToResp[req.Type],
@@ -189,7 +189,7 @@ func (n *namingServer) Discover(stream namingpb.PolarisGRPC_DiscoverServer) erro
 			}
 			n.mutex.Unlock()
 		}
-		log.Printf("send resp, type %v, %v, resp %v", req.Type, req.Service, resp)
+		//log.Printf("send resp, type %v, %v, resp %v", req.Type, req.Service, resp)
 		if err = stream.Send(resp); nil != err {
 			log.Printf("send resp err: %v", err)
 			return err

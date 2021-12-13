@@ -69,5 +69,8 @@ func main() {
 		_, _ = w.Write([]byte(resp.GetValue()))
 	}
 	http.HandleFunc("/echo", indexHandler)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil))
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil); nil != err {
+		log.Fatal(err)
+	}
+
 }

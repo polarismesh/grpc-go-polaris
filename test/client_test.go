@@ -38,17 +38,22 @@ type clientTestingSuite struct {
 func (s *clientTestingSuite) SetUpSuite(c *check.C) {
 	s.mockServer = mock.NewNamingServer()
 	go func() {
-		log.Fatal(s.mockServer.ListenAndServe(serverTestingPort))
+		err := s.mockServer.ListenAndServe(serverTestingPort)
+		if nil != err {
+			log.Fatal()
+		}
 	}()
 	polaris.PolarisConfig().GetGlobal().GetServerConnector().SetAddresses(
 		[]string{fmt.Sprintf("127.0.0.1:%d", serverTestingPort)})
+	polaris.PolarisConfig().GetConsumer().GetLocalCache().SetPersistAvailableInterval(1 * time.Millisecond)
+	polaris.PolarisConfig().GetConsumer().GetLocalCache().SetStartUseFileCache(false)
 }
 
 func (s *clientTestingSuite) TearDownSuite(c *check.C) {
 	s.mockServer.Terminate()
 }
 
-func (s *serverTestingSuite) TestClientCall(c *check.C) {
+func (s *clientTestingSuite) TestClientCall(c *check.C) {
 	srv := polaris.NewServer(
 		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
 	hello.RegisterHelloServer(srv.GRPCServer(), &helloServer{})
@@ -56,6 +61,7 @@ func (s *serverTestingSuite) TestClientCall(c *check.C) {
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
+	log.Printf("success to listen on %s\n", listen.Addr())
 	defer listen.Close()
 	go func() {
 		err = srv.Serve(listen)
