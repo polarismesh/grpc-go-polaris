@@ -48,7 +48,7 @@ func newFuncDialOption(f func(*dialOptions)) *funcDialOption {
 }
 
 type dialOptions struct {
-	gRPCDialOptions []grpc.DialOption `json:"-"`
+	gRPCDialOptions []grpc.DialOption
 	Namespace       string            `json:"Namespace"`
 	DstMetadata     map[string]string `json:"dst_metadata"`
 	SrcMetadata     map[string]string `json:"src_metadata"`
