@@ -43,7 +43,10 @@ type serverTestingSuite struct {
 func (s *serverTestingSuite) SetUpSuite(c *check.C) {
 	s.mockServer = mock.NewNamingServer()
 	go func() {
-		log.Fatal(s.mockServer.ListenAndServe(serverTestingPort))
+		err := s.mockServer.ListenAndServe(serverTestingPort)
+		if nil != err {
+			log.Fatal()
+		}
 	}()
 	polaris.PolarisConfig().GetGlobal().GetServerConnector().SetAddresses(
 		[]string{fmt.Sprintf("127.0.0.1:%d", serverTestingPort)})
@@ -80,7 +83,7 @@ func (s *serverTestingSuite) TestRegister(c *check.C) {
 			c.Fatal(err)
 		}
 	}()
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 	hbCount := s.mockServer.HeartbeatCount(address)
 	c.Check(hbCount > 0, check.Equals, true)
 }
