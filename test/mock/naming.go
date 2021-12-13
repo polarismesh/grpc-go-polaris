@@ -45,6 +45,7 @@ var (
 	}
 )
 
+// NamingServer mock naming server interface
 type NamingServer interface {
 	namingpb.PolarisGRPCServer
 	// HeartbeatCount get the hb count from mock naming server
@@ -62,7 +63,7 @@ type namingServer struct {
 	grpcServer      *grpc.Server
 }
 
-// NewNamingServer
+// NewNamingServer constructor for NamingServer
 func NewNamingServer() NamingServer {
 	return &namingServer{
 		services:        make(map[model.ServiceKey]map[string]*namingpb.Instance),
@@ -70,7 +71,7 @@ func NewNamingServer() NamingServer {
 	}
 }
 
-// 客户端上报
+// ReportClient report client message
 func (n *namingServer) ReportClient(ctx context.Context, req *namingpb.Client) (*namingpb.Response, error) {
 	svrLocation := &namingpb.Location{}
 	respClient := &namingpb.Client{
@@ -86,7 +87,7 @@ func (n *namingServer) ReportClient(ctx context.Context, req *namingpb.Client) (
 	}, nil
 }
 
-// 被调方注册服务实例
+// RegisterInstance register service instances
 func (n *namingServer) RegisterInstance(ctx context.Context, instance *namingpb.Instance) (*namingpb.Response, error) {
 	namespace := instance.GetNamespace().GetValue()
 	service := instance.GetService().GetValue()
@@ -118,7 +119,7 @@ func (n *namingServer) RegisterInstance(ctx context.Context, instance *namingpb.
 	}, nil
 }
 
-// 被调方反注册服务实例
+// DeregisterInstance deregister service instances
 func (n *namingServer) DeregisterInstance(ctx context.Context, instance *namingpb.Instance) (*namingpb.Response, error) {
 	namespace := instance.GetNamespace().GetValue()
 	service := instance.GetService().GetValue()
@@ -153,7 +154,7 @@ func (n *namingServer) DeregisterInstance(ctx context.Context, instance *namingp
 	}, nil
 }
 
-// 统一发现接口
+// Discover unique discover method
 func (n *namingServer) Discover(stream namingpb.PolarisGRPC_DiscoverServer) error {
 	for {
 		req, err := stream.Recv()
@@ -196,7 +197,7 @@ func (n *namingServer) Discover(stream namingpb.PolarisGRPC_DiscoverServer) erro
 	}
 }
 
-// 被调方上报心跳
+// Heartbeat gRPC heartbeat method
 func (n *namingServer) Heartbeat(ctx context.Context, instance *namingpb.Instance) (*namingpb.Response, error) {
 	namespace := instance.GetNamespace().GetValue()
 	service := instance.GetService().GetValue()

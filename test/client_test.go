@@ -50,7 +50,7 @@ func (s *clientTestingSuite) TearDownSuite(c *check.C) {
 
 func (s *serverTestingSuite) TestClientCall(c *check.C) {
 	srv := polaris.NewServer(
-		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTtl(2))
+		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
 	hello.RegisterHelloServer(srv.GRPCServer(), &helloServer{})
 	listen, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {

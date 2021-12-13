@@ -26,7 +26,7 @@ import (
 
 const (
 	defaultNamespace = "default"
-	defaultTtl       = 20
+	defaultTTL       = 20
 )
 
 var (

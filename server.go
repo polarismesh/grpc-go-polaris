@@ -53,7 +53,7 @@ func (s *serverOptions) setDefault() {
 		s.namespace = defaultNamespace
 	}
 	if s.ttl == 0 {
-		s.ttl = defaultTtl
+		s.ttl = defaultTTL
 	}
 }
 
@@ -113,8 +113,8 @@ func WithServerHost(host string) ServerOption {
 	})
 }
 
-// WithTtl set the ttl to register instance
-func WithTtl(ttl int) ServerOption {
+// WithTTL set the ttl to register instance
+func WithTTL(ttl int) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.ttl = ttl
 	})
