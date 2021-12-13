@@ -36,6 +36,8 @@ func Test(t *testing.T) {
 
 //初始化测试套
 func init() {
+	log.Printf("start to test serverTestingSuite")
 	check.Suite(&serverTestingSuite{})
+	log.Printf("start to test clientTestingSuite")
 	check.Suite(&clientTestingSuite{})
 }

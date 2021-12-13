@@ -53,7 +53,7 @@ func (s *clientTestingSuite) TearDownSuite(c *check.C) {
 	s.mockServer.Terminate()
 }
 
-func (s *serverTestingSuite) TestClientCall(c *check.C) {
+func (s *clientTestingSuite) TestClientCall(c *check.C) {
 	srv := polaris.NewServer(
 		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
 	hello.RegisterHelloServer(srv.GRPCServer(), &helloServer{})
