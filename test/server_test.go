@@ -47,6 +47,8 @@ func (s *serverTestingSuite) SetUpSuite(c *check.C) {
 	}()
 	polaris.PolarisConfig().GetGlobal().GetServerConnector().SetAddresses(
 		[]string{fmt.Sprintf("127.0.0.1:%d", serverTestingPort)})
+	polaris.PolarisConfig().GetConsumer().GetLocalCache().SetPersistAvailableInterval(1 * time.Millisecond)
+	polaris.PolarisConfig().GetConsumer().GetLocalCache().SetStartUseFileCache(false)
 }
 
 //销毁套件
