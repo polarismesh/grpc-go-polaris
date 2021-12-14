@@ -21,9 +21,12 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -166,6 +169,7 @@ func parsePort(addr string) (int, error) {
 }
 
 func deregisterServices(registerContext *RegisterContext) {
+	fmt.Printf("invoke deregisterServices\n")
 	registerContext.cancel()
 	if nil != registerContext.healthCheckWait {
 		grpclog.Infof("[Polaris]start to wait heartbeat finish")
@@ -217,7 +221,7 @@ func (s *Server) startHeartbeat(ctx context.Context,
 			for {
 				select {
 				case <-ctx.Done():
-					grpclog.Infof("[Polaris]heartbeat ticker %d has stopped")
+					grpclog.Infof("[Polaris]heartbeat ticker has stopped")
 					wg.Done()
 					return
 				case <-ticker.C:
@@ -228,8 +232,8 @@ func (s *Server) startHeartbeat(ctx context.Context,
 					hbRequest.Port = registerRequest.Port
 					err := providerAPI.Heartbeat(hbRequest)
 					if nil != err {
-						grpclog.Errorf("[Polaris]fail to heartbeat %s:%d to service %s(%s)",
-							hbRequest.Host, hbRequest.Port, hbRequest.Service, hbRequest.Namespace)
+						grpclog.Errorf("[Polaris]fail to heartbeat %s:%d to service %s(%s): %v",
+							hbRequest.Host, hbRequest.Port, hbRequest.Service, hbRequest.Namespace, err)
 					}
 				}
 			}
@@ -247,7 +251,6 @@ func (s *Server) Serve(lis net.Listener) error {
 	registerContext := &RegisterContext{
 		cancel: cancel,
 	}
-	defer deregisterServices(registerContext)
 	if len(svcInfos) > 0 {
 		polarisCtx, err := PolarisContext()
 		if nil != err {
@@ -286,6 +289,7 @@ func (s *Server) Serve(lis net.Listener) error {
 			registerContext.registerRequests = append(registerContext.registerRequests, registerRequest)
 			resp, err := registerContext.providerAPI.Register(registerRequest)
 			if nil != err {
+				deregisterServices(registerContext)
 				return fmt.Errorf("fail to register service %s: %v", name, err)
 			}
 			grpclog.Infof("[Polaris]success to register %s:%d to service %s(%s), id %s",
@@ -294,5 +298,15 @@ func (s *Server) Serve(lis net.Listener) error {
 		registerContext.healthCheckWait =
 			s.startHeartbeat(ctx, registerContext.providerAPI, registerContext.registerRequests)
 	}
+	go s.scheduleDeregister(registerContext)
 	return s.gRPCServer.Serve(lis)
+}
+
+func (s *Server) scheduleDeregister(registerContext *RegisterContext) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-c
+	grpclog.Infof("[Polaris]receive quit signal %v", sig)
+	deregisterServices(registerContext)
+	s.gRPCServer.GracefulStop()
 }
