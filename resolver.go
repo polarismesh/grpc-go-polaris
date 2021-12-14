@@ -24,6 +24,10 @@ import (
 	"fmt"
 	"sync"
 
+	"google.golang.org/grpc/grpclog"
+
+	"github.com/polarismesh/polaris-go/pkg/model"
+
 	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
@@ -106,10 +110,10 @@ func getNamespace(options *dialOptions) string {
 
 const keyDialOptions = "options"
 
-func (pr *polarisNamingResolver) lookup() (*resolver.State, error) {
+func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, error) {
 	sdkCtx, err := PolarisContext()
 	if nil != err {
-		return nil, err
+		return nil, nil, err
 	}
 	consumerAPI := api.NewConsumerAPIByContext(sdkCtx)
 	instancesRequest := &api.GetInstancesRequest{}
@@ -125,7 +129,7 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, error) {
 	}
 	resp, err := consumerAPI.GetInstances(instancesRequest)
 	if nil != err {
-		return nil, err
+		return nil, consumerAPI, err
 	}
 	state := &resolver.State{}
 	for _, instance := range resp.Instances {
@@ -134,23 +138,46 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, error) {
 			Attributes: attributes.New(keyDialOptions, pr.options),
 		})
 	}
-	return state, nil
+	return state, consumerAPI, nil
+}
+
+func (pr *polarisNamingResolver) doWatch(
+	consumerAPI api.ConsumerAPI) (model.ServiceKey, <-chan model.SubScribeEvent, error) {
+	watchRequest := &api.WatchServiceRequest{}
+	watchRequest.Key = model.ServiceKey{
+		Namespace: getNamespace(pr.options),
+		Service:   pr.target.Authority,
+	}
+	resp, err := consumerAPI.WatchService(watchRequest)
+	if nil != err {
+		return watchRequest.Key, nil, err
+	}
+	return watchRequest.Key, resp.EventChannel, nil
 }
 
 func (pr *polarisNamingResolver) watcher() {
 	defer pr.wg.Done()
+	var consumerAPI api.ConsumerAPI
+	var eventChan <-chan model.SubScribeEvent
 	for {
 		select {
 		case <-pr.ctx.Done():
 			return
 		case <-pr.rn:
+		case <-eventChan:
 		}
-
-		state, err := pr.lookup()
+		var state *resolver.State
+		var err error
+		state, consumerAPI, err = pr.lookup()
 		if err != nil {
 			pr.cc.ReportError(err)
 		} else {
 			pr.cc.UpdateState(*state)
+			var svcKey model.ServiceKey
+			svcKey, eventChan, err = pr.doWatch(consumerAPI)
+			if nil != err {
+				grpclog.Errorf("fail to do watch for service %s: %v", svcKey, err)
+			}
 		}
 	}
 }
