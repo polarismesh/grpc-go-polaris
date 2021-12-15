@@ -6,12 +6,6 @@ package quickstart;
 
 service EchoServer {
   rpc Echo(EchoRequest) returns (EchoResponse) {}
-  rpc Echo2(EchoRequest) returns (EchoResponse) {}
-  rpc Echo1(EchoRequest) returns (EchoResponse) {}
-}
-
-service EchoServer1 {
-  rpc Echo(EchoRequest) returns (EchoResponse) {}
 }
 
 message EchoRequest {

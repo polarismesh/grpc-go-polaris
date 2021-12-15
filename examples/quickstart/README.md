@@ -73,7 +73,7 @@ run binary executable：
 
 #### Check polaris console
 
-Login into polaris console, and check the instances in Service `EchoService`.
+Login into polaris console, and check the instances in Service `EchoServerGRPC`.
 
 #### Invoke by http call
 
