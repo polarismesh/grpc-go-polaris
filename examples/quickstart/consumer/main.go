@@ -37,7 +37,7 @@ func main() {
 	//grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn, err := polaris.DialContext(ctx, "polaris://EchoService", polaris.WithGRPCDialOptions(grpc.WithInsecure()))
+	conn, err := polaris.DialContext(ctx, "polaris://EchoServerGRPC", polaris.WithGRPCDialOptions(grpc.WithInsecure()))
 	if err != nil {
 		log.Fatal(err)
 	}

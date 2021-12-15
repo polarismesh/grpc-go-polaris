@@ -74,7 +74,7 @@ go build -o consumer
 
 #### 控制台验证
 
-登录polaris控制台，可以看到EchoService服务下存在对应的provider实例。
+登录polaris控制台，可以看到EchoServerGRPC服务下存在对应的provider实例。
 
 #### HTTP调用
 

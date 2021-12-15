@@ -35,7 +35,7 @@ func (h *EchoService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoRe
 }
 
 func main() {
-	srv := polaris.NewServer(polaris.WithServerApplication("EchoService"))
+	srv := polaris.NewServer(polaris.WithServerApplication("EchoServerGRPC"))
 	pb.RegisterEchoServerServer(srv.GRPCServer(), &EchoService{})
 	// 监听端口
 	address := "0.0.0.0:0"
