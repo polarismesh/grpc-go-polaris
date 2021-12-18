@@ -18,15 +18,20 @@
 package grpcpolaris
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
 )
 
-const (
-	defaultNamespace = "default"
-	defaultTTL       = 20
+var (
+	// DefaultNamespace default namespace when namespace is not set
+	DefaultNamespace = "default"
+	// DefaultTTL default ttl value when ttl is not set
+	DefaultTTL = 20
+	// LoadBalanceConfig config for do the balance
+	LoadBalanceConfig = fmt.Sprintf("{\n  \"loadBalancingConfig\": [ { \"%s\": {} } ]}", scheme)
 )
 
 var (

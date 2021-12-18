@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"google.golang.org/grpc/grpclog"
@@ -44,12 +45,23 @@ func (rb *resolverBuilder) Scheme() string {
 func targetToOptions(target resolver.Target) (*dialOptions, error) {
 	options := &dialOptions{}
 	if len(target.Endpoint) > 0 {
-		value, err := base64.URLEncoding.DecodeString(target.Endpoint)
-		if nil != err {
-			return nil, fmt.Errorf("fail to decode endpoint %s: %v", target.Endpoint, err)
+		endpoint := target.Endpoint
+		var optionsStr string
+		if strings.Index(endpoint, optionsPrefix) >= 0 {
+			tokens := strings.Split(endpoint, optionsPrefix)
+			if len(tokens) > 1 {
+				optionsStr = tokens[1]
+			}
 		}
-		if err = json.Unmarshal(value, options); nil != err {
-			return nil, fmt.Errorf("fail to unmarshal endpoint %s: %v", string(value), err)
+		if len(optionsStr) > 0 {
+			value, err := base64.URLEncoding.DecodeString(optionsStr)
+			if nil != err {
+				return nil, fmt.Errorf(
+					"fail to decode endpoint %s, options %s: %v", target.Endpoint, optionsStr, err)
+			}
+			if err = json.Unmarshal(value, options); nil != err {
+				return nil, fmt.Errorf("fail to unmarshal options %s: %v", string(value), err)
+			}
 		}
 	}
 	return options, nil
@@ -101,7 +113,7 @@ func (pr *polarisNamingResolver) ResolveNow(opt resolver.ResolveNowOptions) { //
 }
 
 func getNamespace(options *dialOptions) string {
-	namespace := defaultNamespace
+	namespace := DefaultNamespace
 	if len(options.Namespace) > 0 {
 		namespace = options.Namespace
 	}

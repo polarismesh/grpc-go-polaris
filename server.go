@@ -53,10 +53,10 @@ type serverOptions struct {
 
 func (s *serverOptions) setDefault() {
 	if len(s.namespace) == 0 {
-		s.namespace = defaultNamespace
+		s.namespace = DefaultNamespace
 	}
 	if s.ttl == 0 {
-		s.ttl = defaultTTL
+		s.ttl = DefaultTTL
 	}
 }
 
