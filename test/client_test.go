@@ -73,7 +73,8 @@ func (s *clientTestingSuite) TestClientCall(c *check.C) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn, err := polaris.DialContext(ctx, "polaris://"+serverSvc, polaris.WithGRPCDialOptions(grpc.WithInsecure()),
+	conn, err := polaris.DialContext(ctx, "polaris://"+serverSvc+"/",
+		polaris.WithGRPCDialOptions(grpc.WithInsecure()),
 		polaris.WithClientNamespace(serverNamespace))
 	if err != nil {
 		log.Fatal(err)

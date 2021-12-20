@@ -101,12 +101,10 @@ func WithHeaderPrefix(headerPrefix []string) DialOption {
 }
 
 const (
-	scheme = "polaris"
-	prefix = scheme + "://"
-	slash  = "/"
+	scheme        = "polaris"
+	prefix        = scheme + "://"
+	optionsPrefix = "?options="
 )
-
-var svcConfig = fmt.Sprintf("{\n  \"loadBalancingConfig\": [ { \"%s\": {} } ]}", scheme)
 
 // DialContext dial target and get connection
 func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *grpc.ClientConn, err error) {
@@ -118,16 +116,12 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 		// not polaris target, go through gRPC resolver
 		return grpc.DialContext(ctx, target, options.gRPCDialOptions...)
 	}
-	options.gRPCDialOptions = append(options.gRPCDialOptions, grpc.WithDefaultServiceConfig(svcConfig))
-	targetWithoutPrefix := target[len(prefix):]
-	if strings.Index(targetWithoutPrefix, slash) >= 0 {
-		return nil, fmt.Errorf("invalid target %s, endpoint not allowed", target)
-	}
+	options.gRPCDialOptions = append(options.gRPCDialOptions, grpc.WithDefaultServiceConfig(LoadBalanceConfig))
 	jsonStr, err := json.Marshal(options)
 	if nil != err {
 		return nil, fmt.Errorf("fail to marshal options: %v", err)
 	}
 	endpoint := base64.URLEncoding.EncodeToString(jsonStr)
-	target = target + slash + endpoint
+	target = target + optionsPrefix + endpoint
 	return grpc.DialContext(ctx, target, options.gRPCDialOptions...)
 }
