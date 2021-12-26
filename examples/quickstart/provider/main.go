@@ -19,11 +19,21 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
+
+	"google.golang.org/grpc"
+
 	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
+)
+
+const (
+	listenPort = 16010
 )
 
 // EchoService gRPC echo service struct
@@ -35,16 +45,29 @@ func (h *EchoService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoRe
 }
 
 func main() {
-	srv := polaris.NewServer(polaris.WithServerApplication("EchoServerGRPC"))
-	pb.RegisterEchoServerServer(srv.GRPCServer(), &EchoService{})
-	// 监听端口
-	address := "0.0.0.0:0"
+	srv := grpc.NewServer()
+	pb.RegisterEchoServerServer(srv, &EchoService{})
+	address := fmt.Sprintf("0.0.0.0:%d", listenPort)
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
-	err = srv.Serve(listen)
+	// 执行北极星的注册命令
+	pSrv, err := polaris.Register(srv, listen, polaris.WithServerApplication("EchoServerGRPC"))
 	if nil != err {
 		log.Fatal(err)
+	}
+	go func() {
+		c := make(chan os.Signal)
+		signal.Notify(c)
+		s := <-c
+		log.Printf("receive quit signal: %v", s)
+		// 执行北极星的反注册命令
+		pSrv.Deregister()
+		srv.GracefulStop()
+	}()
+	err = srv.Serve(listen)
+	if nil != err {
+		log.Printf("listen err: %v", err)
 	}
 }

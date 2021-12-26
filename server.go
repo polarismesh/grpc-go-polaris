@@ -21,12 +21,9 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -37,8 +34,8 @@ import (
 
 // Server encapsulated server with gRPC option
 type Server struct {
-	gRPCServer    *grpc.Server
-	serverOptions serverOptions
+	serverOptions   serverOptions
+	registerContext *RegisterContext
 }
 
 type serverOptions struct {
@@ -130,22 +127,6 @@ func WithPort(port int) ServerOption {
 	})
 }
 
-// NewServer initializer for gRPC server
-func NewServer(opts ...ServerOption) *Server {
-	srv := &Server{}
-	for _, opt := range opts {
-		opt.apply(&srv.serverOptions)
-	}
-	srv.serverOptions.setDefault()
-	srv.gRPCServer = grpc.NewServer(srv.serverOptions.gRPCServerOptions...)
-	return srv
-}
-
-// GRPCServer get the raw gRPC server
-func (s *Server) GRPCServer() *grpc.Server {
-	return s.gRPCServer
-}
-
 func getLocalHost(serverAddr string) (string, error) {
 	conn, err := net.Dial("tcp", serverAddr)
 	if nil != err {
@@ -206,6 +187,16 @@ type RegisterContext struct {
 
 const maxHeartbeatIntervalSec = 60
 
+func checkAddress(address string) bool {
+	conn, err := net.DialTimeout("tcp", address, 100*time.Millisecond)
+	if nil != err {
+		grpclog.Infof("[Polaris]fail to dial %s: %v", address, err)
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
 func (s *Server) startHeartbeat(ctx context.Context,
 	providerAPI api.ProviderAPI, registerRequests []*api.InstanceRegisterRequest) *sync.WaitGroup {
 	heartbeatIntervalSec := s.serverOptions.ttl
@@ -214,6 +205,7 @@ func (s *Server) startHeartbeat(ctx context.Context,
 	}
 	wg := &sync.WaitGroup{}
 	wg.Add(len(registerRequests))
+	dialResults := make(map[string]bool)
 	for i, request := range registerRequests {
 		go func(idx int, registerRequest *api.InstanceRegisterRequest) {
 			ticker := time.NewTicker(time.Duration(heartbeatIntervalSec) * time.Second)
@@ -225,15 +217,23 @@ func (s *Server) startHeartbeat(ctx context.Context,
 					wg.Done()
 					return
 				case <-ticker.C:
-					hbRequest := &api.InstanceHeartbeatRequest{}
-					hbRequest.Namespace = registerRequest.Namespace
-					hbRequest.Service = registerRequest.Service
-					hbRequest.Host = registerRequest.Host
-					hbRequest.Port = registerRequest.Port
-					err := providerAPI.Heartbeat(hbRequest)
-					if nil != err {
-						grpclog.Errorf("[Polaris]fail to heartbeat %s:%d to service %s(%s): %v",
-							hbRequest.Host, hbRequest.Port, hbRequest.Service, hbRequest.Namespace, err)
+					address := fmt.Sprintf("%s:%d", registerRequest.Host, registerRequest.Port)
+					result, ok := dialResults[address]
+					if !ok {
+						result = checkAddress(address)
+						dialResults[address] = result
+					}
+					if result {
+						hbRequest := &api.InstanceHeartbeatRequest{}
+						hbRequest.Namespace = registerRequest.Namespace
+						hbRequest.Service = registerRequest.Service
+						hbRequest.Host = registerRequest.Host
+						hbRequest.Port = registerRequest.Port
+						err := providerAPI.Heartbeat(hbRequest)
+						if nil != err {
+							grpclog.Errorf("[Polaris]fail to heartbeat %s:%d to service %s(%s): %v",
+								hbRequest.Host, hbRequest.Port, hbRequest.Service, hbRequest.Namespace, err)
+						}
 					}
 				}
 			}
@@ -244,9 +244,14 @@ func (s *Server) startHeartbeat(ctx context.Context,
 	return wg
 }
 
-// Serve listen and accept connections
-func (s *Server) Serve(lis net.Listener) error {
-	svcInfos := s.gRPCServer.GetServiceInfo()
+// Register register server as polaris instances
+func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
+	srv := &Server{}
+	for _, opt := range opts {
+		opt.apply(&srv.serverOptions)
+	}
+	srv.serverOptions.setDefault()
+	svcInfos := gSrv.GetServiceInfo()
 	ctx, cancel := context.WithCancel(context.Background())
 	registerContext := &RegisterContext{
 		cancel: cancel,
@@ -254,59 +259,55 @@ func (s *Server) Serve(lis net.Listener) error {
 	if len(svcInfos) > 0 {
 		polarisCtx, err := PolarisContext()
 		if nil != err {
-			return err
+			return nil, err
 		}
-		if len(s.serverOptions.host) == 0 {
+		if len(srv.serverOptions.host) == 0 {
 			host, err := getLocalHost(polarisCtx.GetConfig().GetGlobal().GetServerConnector().GetAddresses()[0])
 			if nil != err {
-				return fmt.Errorf("error occur while fetching localhost: %v", err)
+				return nil, fmt.Errorf("error occur while fetching localhost: %v", err)
 			}
-			s.serverOptions.host = host
+			srv.serverOptions.host = host
 		}
-		if s.serverOptions.port == 0 {
+		if srv.serverOptions.port == 0 {
 			port, err := parsePort(lis.Addr().String())
 			if nil != err {
-				return fmt.Errorf("error occur while parsing port from listener: %v", err)
+				return nil, fmt.Errorf("error occur while parsing port from listener: %v", err)
 			}
-			s.serverOptions.port = port
+			srv.serverOptions.port = port
 		}
 
 		registerContext.registerRequests = make([]*api.InstanceRegisterRequest, 0, len(svcInfos))
 		registerContext.providerAPI = api.NewProviderAPIByContext(polarisCtx)
 		for name := range svcInfos {
 			var svcName = name
-			if len(s.serverOptions.application) > 0 {
-				svcName = s.serverOptions.application
+			if len(srv.serverOptions.application) > 0 {
+				svcName = srv.serverOptions.application
 			}
 			registerRequest := &api.InstanceRegisterRequest{}
-			registerRequest.Namespace = s.serverOptions.namespace
+			registerRequest.Namespace = srv.serverOptions.namespace
 			registerRequest.Service = svcName
-			registerRequest.Host = s.serverOptions.host
-			registerRequest.Port = s.serverOptions.port
-			registerRequest.SetTTL(s.serverOptions.ttl)
+			registerRequest.Host = srv.serverOptions.host
+			registerRequest.Port = srv.serverOptions.port
+			registerRequest.SetTTL(srv.serverOptions.ttl)
 			registerRequest.Protocol = proto.String(lis.Addr().Network())
-			registerRequest.Metadata = s.serverOptions.metadata
+			registerRequest.Metadata = srv.serverOptions.metadata
 			registerContext.registerRequests = append(registerContext.registerRequests, registerRequest)
 			resp, err := registerContext.providerAPI.Register(registerRequest)
 			if nil != err {
 				deregisterServices(registerContext)
-				return fmt.Errorf("fail to register service %s: %v", name, err)
+				return nil, fmt.Errorf("fail to register service %s: %v", name, err)
 			}
 			grpclog.Infof("[Polaris]success to register %s:%d to service %s(%s), id %s",
 				registerRequest.Host, registerRequest.Port, name, registerRequest.Namespace, resp.InstanceID)
 		}
 		registerContext.healthCheckWait =
-			s.startHeartbeat(ctx, registerContext.providerAPI, registerContext.registerRequests)
+			srv.startHeartbeat(ctx, registerContext.providerAPI, registerContext.registerRequests)
 	}
-	go s.scheduleDeregister(registerContext)
-	return s.gRPCServer.Serve(lis)
+	srv.registerContext = registerContext
+	return srv, nil
 }
 
-func (s *Server) scheduleDeregister(registerContext *RegisterContext) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-c
-	grpclog.Infof("[Polaris]receive quit signal %v", sig)
-	deregisterServices(registerContext)
-	s.gRPCServer.GracefulStop()
+// Deregister deregister services from polaris
+func (s *Server) Deregister() {
+	deregisterServices(s.registerContext)
 }
