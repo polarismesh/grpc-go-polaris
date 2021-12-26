@@ -24,6 +24,8 @@ import (
 	"net"
 	"time"
 
+	"google.golang.org/grpc"
+
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/test/hello"
 	"github.com/polarismesh/grpc-go-polaris/test/mock"
@@ -67,9 +69,8 @@ func (t *helloServer) SayHello(ctx context.Context, request *hello.HelloRequest)
 }
 
 func (s *serverTestingSuite) TestRegister(c *check.C) {
-	srv := polaris.NewServer(
-		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
-	hello.RegisterHelloServer(srv.GRPCServer(), &helloServer{})
+	srv := grpc.NewServer()
+	hello.RegisterHelloServer(srv, &helloServer{})
 	// 监听端口
 	address := "127.0.0.1:8988"
 	listen, err := net.Listen("tcp", address)
@@ -77,6 +78,12 @@ func (s *serverTestingSuite) TestRegister(c *check.C) {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
 	defer listen.Close()
+	pSrv, err := polaris.Register(srv, listen,
+		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
+	if nil != err {
+		log.Fatal(err)
+	}
+	defer pSrv.Deregister()
 	go func() {
 		err = srv.Serve(listen)
 		if nil != err {
