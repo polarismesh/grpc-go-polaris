@@ -25,27 +25,25 @@ import (
 	"strings"
 	"sync"
 
-	"google.golang.org/grpc/grpclog"
-
-	"github.com/polarismesh/polaris-go/pkg/model"
-
 	"github.com/polarismesh/polaris-go/api"
+	"github.com/polarismesh/polaris-go/pkg/model"
 	"google.golang.org/grpc/attributes"
+	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/resolver"
 )
 
 type resolverBuilder struct {
 }
 
-// Scheme polaris sheme
+// Scheme polaris scheme
 func (rb *resolverBuilder) Scheme() string {
 	return scheme
 }
 
 func targetToOptions(target resolver.Target) (*dialOptions, error) {
 	options := &dialOptions{}
-	if len(target.Endpoint) > 0 {
-		endpoint := target.Endpoint
+	if len(target.URL.Path) > 0 {
+		endpoint := target.URL.Path
 		var optionsStr string
 		if strings.Index(endpoint, optionsPrefix) >= 0 {
 			tokens := strings.Split(endpoint, optionsPrefix)
@@ -67,9 +65,9 @@ func targetToOptions(target resolver.Target) (*dialOptions, error) {
 	return options, nil
 }
 
-// PolarisBuilder 实现 Resolver Builder interface 中的 Build 方法
-// 为指定 Target 构建新的 Resolver
-// 解析服务地址，通过attr传递polaris信息给balancer
+// Build Implement the Build method in the Resolver Builder interface,
+// build a new Resolver resolution service address for the specified Target,
+// and pass the polaris information to the balancer through attr
 func (rb *resolverBuilder) Build(
 	target resolver.Target,
 	cc resolver.ClientConn,
@@ -104,8 +102,8 @@ type polarisNamingResolver struct {
 	target  resolver.Target
 }
 
-// ResolveNow 方法被 gRPC 框架调用以解析 target name
-func (pr *polarisNamingResolver) ResolveNow(opt resolver.ResolveNowOptions) { //立即resolve，重新查询服务信息
+// ResolveNow The method is called by the gRPC framework to resolve the target name
+func (pr *polarisNamingResolver) ResolveNow(opt resolver.ResolveNowOptions) { // 立即resolve，重新查询服务信息
 	select {
 	case pr.rn <- struct{}{}:
 	default:
@@ -194,7 +192,7 @@ func (pr *polarisNamingResolver) watcher() {
 	}
 }
 
-// Close 用于关闭 Resolver
+// Close resolver closed
 func (pr *polarisNamingResolver) Close() {
 	pr.cancel()
 }
