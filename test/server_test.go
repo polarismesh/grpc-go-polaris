@@ -77,7 +77,6 @@ func (s *serverTestingSuite) TestRegister(c *check.C) {
 	if err != nil {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
-	defer listen.Close()
 	pSrv, err := polaris.Register(srv, listen,
 		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
 	if nil != err {
