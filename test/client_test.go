@@ -56,7 +56,7 @@ func (s *clientTestingSuite) TearDownSuite(c *check.C) {
 func (s *clientTestingSuite) TestClientCall(c *check.C) {
 	srv := grpc.NewServer()
 	hello.RegisterHelloServer(srv, &helloServer{})
-	listen, err := net.Listen("tcp", "0.0.0.0:0")
+	listen, err := net.Listen("tcp", "0.0.0.0:58661")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}

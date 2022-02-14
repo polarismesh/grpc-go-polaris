@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 
 	"google.golang.org/grpc/grpclog"
@@ -44,13 +43,13 @@ func (rb *resolverBuilder) Scheme() string {
 
 func targetToOptions(target resolver.Target) (*dialOptions, error) {
 	options := &dialOptions{}
-	if len(target.Endpoint) > 0 {
-		endpoint := target.Endpoint
+	if len(target.URL.RawQuery) > 0 {
 		var optionsStr string
-		if strings.Index(endpoint, optionsPrefix) >= 0 {
-			tokens := strings.Split(endpoint, optionsPrefix)
-			if len(tokens) > 1 {
-				optionsStr = tokens[1]
+		values := target.URL.Query()
+		if len(values) > 0 {
+			optionValues := values[optionsKey]
+			if len(optionValues) > 0 {
+				optionsStr = optionValues[0]
 			}
 		}
 		if len(optionsStr) > 0 {
