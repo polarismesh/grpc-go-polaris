@@ -65,7 +65,7 @@ type polarisNamingBalancer struct {
 	subConns map[resolver.Address]balancer.SubConn
 	scStates map[balancer.SubConn]connectivity.State
 
-	v2Picker    balancer.V2Picker
+	v2Picker    balancer.Picker
 	consumerAPI api.ConsumerAPI
 
 	options *dialOptions
@@ -243,7 +243,7 @@ func (p *polarisNamingBalancer) UpdateSubConnState(sc balancer.SubConn, state ba
 //  - built by the pickerBuilder with all READY SubConns otherwise.
 func (p *polarisNamingBalancer) regeneratePicker(options *dialOptions) {
 	if p.state == connectivity.TransientFailure {
-		p.v2Picker = base.NewErrPickerV2(balancer.TransientFailureError(p.mergeErrors()))
+		p.v2Picker = base.NewErrPicker(p.mergeErrors())
 		return
 	}
 	readySCs := make(map[string]balancer.SubConn)
