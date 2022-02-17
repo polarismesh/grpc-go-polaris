@@ -54,15 +54,19 @@ func (s *clientTestingSuite) TearDownSuite(c *check.C) {
 }
 
 func (s *clientTestingSuite) TestClientCall(c *check.C) {
-	srv := polaris.NewServer(
-		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
-	hello.RegisterHelloServer(srv.GRPCServer(), &helloServer{})
-	listen, err := net.Listen("tcp", "0.0.0.0:0")
+	srv := grpc.NewServer()
+	hello.RegisterHelloServer(srv, &helloServer{})
+	listen, err := net.Listen("tcp", "0.0.0.0:58661")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	log.Printf("success to listen on %s\n", listen.Addr())
-	defer listen.Close()
+	pSrv, err := polaris.Register(srv, listen,
+		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
+	if nil != err {
+		log.Fatal(err)
+	}
+	defer pSrv.Deregister()
 	go func() {
 		err = srv.Serve(listen)
 		if nil != err {

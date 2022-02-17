@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/polarismesh/polaris-go/api"
@@ -42,13 +41,13 @@ func (rb *resolverBuilder) Scheme() string {
 
 func targetToOptions(target resolver.Target) (*dialOptions, error) {
 	options := &dialOptions{}
-	if len(target.URL.Path) > 0 {
-		endpoint := target.URL.Path
+	if len(target.URL.RawQuery) > 0 {
 		var optionsStr string
-		if strings.Index(endpoint, optionsPrefix) >= 0 {
-			tokens := strings.Split(endpoint, optionsPrefix)
-			if len(tokens) > 1 {
-				optionsStr = tokens[1]
+		values := target.URL.Query()
+		if len(values) > 0 {
+			optionValues := values[optionsKey]
+			if len(optionValues) > 0 {
+				optionsStr = optionValues[0]
 			}
 		}
 		if len(optionsStr) > 0 {
@@ -128,7 +127,7 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, err
 	consumerAPI := api.NewConsumerAPIByContext(sdkCtx)
 	instancesRequest := &api.GetInstancesRequest{}
 	instancesRequest.Namespace = getNamespace(pr.options)
-	instancesRequest.Service = pr.target.Authority
+	instancesRequest.Service = pr.target.URL.Host
 	if len(pr.options.DstMetadata) > 0 {
 		instancesRequest.Metadata = pr.options.DstMetadata
 	}
@@ -156,7 +155,7 @@ func (pr *polarisNamingResolver) doWatch(
 	watchRequest := &api.WatchServiceRequest{}
 	watchRequest.Key = model.ServiceKey{
 		Namespace: getNamespace(pr.options),
-		Service:   pr.target.Authority,
+		Service:   pr.target.URL.Host,
 	}
 	resp, err := consumerAPI.WatchService(watchRequest)
 	if nil != err {

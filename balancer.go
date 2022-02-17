@@ -383,6 +383,9 @@ type resultReporter struct {
 
 func (r *resultReporter) report(info balancer.DoneInfo) {
 	recvErr := info.Err
+	if !info.BytesReceived {
+		return
+	}
 	callResult := &api.ServiceCallResult{}
 	callResult.CalledInstance = r.instance
 	var code uint32

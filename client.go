@@ -101,9 +101,9 @@ func WithHeaderPrefix(headerPrefix []string) DialOption {
 }
 
 const (
-	scheme        = "polaris"
-	prefix        = scheme + "://"
-	optionsPrefix = "?options="
+	scheme     = "polaris"
+	prefix     = scheme + "://"
+	optionsKey = "options"
 )
 
 // DialContext dial target and get connection
@@ -122,6 +122,6 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 		return nil, fmt.Errorf("fail to marshal options: %v", err)
 	}
 	endpoint := base64.URLEncoding.EncodeToString(jsonStr)
-	target = target + optionsPrefix + endpoint
+	target = fmt.Sprintf("%s?%s=%s", target, optionsKey, endpoint)
 	return grpc.DialContext(ctx, target, options.gRPCDialOptions...)
 }
