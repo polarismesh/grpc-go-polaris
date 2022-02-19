@@ -23,8 +23,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
 	"google.golang.org/grpc"
+
+	"github.com/polarismesh/grpc-go-polaris/examples/quickstart/pb"
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 )
@@ -34,7 +35,7 @@ const (
 )
 
 func main() {
-	//grpc客户端连接获取
+	// grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, "polaris://EchoServerGRPC/", grpc.WithInsecure(),
