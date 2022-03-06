@@ -40,7 +40,7 @@ import (
 type resolverBuilder struct {
 }
 
-// Scheme polaris sheme
+// Scheme polaris scheme
 func (rb *resolverBuilder) Scheme() string {
 	return scheme
 }
@@ -70,9 +70,9 @@ func targetToOptions(target resolver.Target) (*dialOptions, error) {
 	return options, nil
 }
 
-// PolarisBuilder 实现 Resolver Builder interface 中的 Build 方法
-// 为指定 Target 构建新的 Resolver
-// 解析服务地址，通过attr传递polaris信息给balancer
+// Build Implement the Build method in the Resolver Builder interface,
+// build a new Resolver resolution service address for the specified Target,
+// and pass the polaris information to the balancer through attr
 func (rb *resolverBuilder) Build(
 	target resolver.Target,
 	cc resolver.ClientConn,
@@ -108,8 +108,8 @@ type polarisNamingResolver struct {
 	balanceOnce sync.Once
 }
 
-// ResolveNow 方法被 gRPC 框架调用以解析 target name
-func (pr *polarisNamingResolver) ResolveNow(opt resolver.ResolveNowOptions) { //立即resolve，重新查询服务信息
+// ResolveNow The method is called by the gRPC framework to resolve the target name
+func (pr *polarisNamingResolver) ResolveNow(opt resolver.ResolveNowOptions) { // 立即resolve，重新查询服务信息
 	select {
 	case pr.rn <- struct{}{}:
 	default:
@@ -134,7 +134,7 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, err
 	consumerAPI := api.NewConsumerAPIByContext(sdkCtx)
 	instancesRequest := &api.GetInstancesRequest{}
 	instancesRequest.Namespace = getNamespace(pr.options)
-	instancesRequest.Service = pr.target.Authority
+	instancesRequest.Service = pr.target.URL.Host
 	if len(pr.options.DstMetadata) > 0 {
 		instancesRequest.Metadata = pr.options.DstMetadata
 	}
@@ -162,7 +162,7 @@ func (pr *polarisNamingResolver) doWatch(
 	watchRequest := &api.WatchServiceRequest{}
 	watchRequest.Key = model.ServiceKey{
 		Namespace: getNamespace(pr.options),
-		Service:   pr.target.Authority,
+		Service:   pr.target.URL.Host,
 	}
 	resp, err := consumerAPI.WatchService(watchRequest)
 	if nil != err {
@@ -208,7 +208,7 @@ func (pr *polarisNamingResolver) watcher() {
 	}
 }
 
-// Close 用于关闭 Resolver
+// Close resolver closed
 func (pr *polarisNamingResolver) Close() {
 	pr.cancel()
 }

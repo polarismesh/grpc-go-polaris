@@ -50,7 +50,7 @@ func (bb *balancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOpti
 	}
 }
 
-// Name 返回Name
+// Name return name
 func (bb *balancerBuilder) Name() string {
 	return scheme
 }
@@ -75,7 +75,7 @@ type polarisNamingBalancer struct {
 	connErr     error // the last connection error; cleared upon leaving TransientFailure
 }
 
-// of sc has changed.
+// HandleSubConnStateChange .is called by gRPC of sc has changed.
 // Balancer is expected to aggregate all the state of SubConn and report
 // that back to gRPC.
 // Balancer should also generate and update Pickers when its internal state has
@@ -324,7 +324,7 @@ func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
 func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	request := &api.GetOneInstanceRequest{}
 	request.Namespace = getNamespace(pnp.options)
-	request.Service = pnp.balancer.target.Authority
+	request.Service = pnp.balancer.target.URL.Host
 	if len(pnp.options.DstMetadata) > 0 {
 		request.Metadata = pnp.options.DstMetadata
 	}
