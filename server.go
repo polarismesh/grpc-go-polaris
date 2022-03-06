@@ -46,6 +46,7 @@ type serverOptions struct {
 	metadata          map[string]string
 	host              string
 	port              int
+	token             string
 }
 
 func (s *serverOptions) setDefault() {
@@ -89,6 +90,13 @@ func WithServerApplication(application string) ServerOption {
 func WithGRPCServerOptions(opts ...grpc.ServerOption) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.gRPCServerOptions = opts
+	})
+}
+
+// WithToken set the token to do server operations
+func WithToken(token string) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		options.token = token
 	})
 }
 
@@ -166,6 +174,7 @@ func deregisterServices(registerContext *RegisterContext) {
 		deregisterRequest.Service = registerRequest.Service
 		deregisterRequest.Host = registerRequest.Host
 		deregisterRequest.Port = registerRequest.Port
+		deregisterRequest.ServiceToken = registerRequest.ServiceToken
 		err := registerContext.providerAPI.Deregister(deregisterRequest)
 		if nil != err {
 			grpclog.Errorf("[Polaris]fail to deregister %s:%d to service %s(%s)",
@@ -229,6 +238,7 @@ func (s *Server) startHeartbeat(ctx context.Context,
 						hbRequest.Service = registerRequest.Service
 						hbRequest.Host = registerRequest.Host
 						hbRequest.Port = registerRequest.Port
+						hbRequest.ServiceToken = registerRequest.ServiceToken
 						err := providerAPI.Heartbeat(hbRequest)
 						if nil != err {
 							grpclog.Errorf("[Polaris]fail to heartbeat %s:%d to service %s(%s): %v",
@@ -291,6 +301,7 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 			registerRequest.SetTTL(srv.serverOptions.ttl)
 			registerRequest.Protocol = proto.String(lis.Addr().Network())
 			registerRequest.Metadata = srv.serverOptions.metadata
+			registerRequest.ServiceToken = srv.serverOptions.token
 			registerContext.registerRequests = append(registerContext.registerRequests, registerRequest)
 			resp, err := registerContext.providerAPI.Register(registerRequest)
 			if nil != err {

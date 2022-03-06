@@ -24,10 +24,16 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/polarismesh/polaris-go/api"
-	"github.com/polarismesh/polaris-go/pkg/model"
-	"google.golang.org/grpc/attributes"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/serviceconfig"
+
 	"google.golang.org/grpc/grpclog"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/polarismesh/polaris-go/pkg/model"
+
+	"github.com/polarismesh/polaris-go/api"
+	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
 )
 
@@ -95,10 +101,11 @@ type polarisNamingResolver struct {
 	cancel context.CancelFunc
 	cc     resolver.ClientConn
 	// rn channel is used by ResolveNow() to force an immediate resolution of the target.
-	rn      chan struct{}
-	wg      sync.WaitGroup
-	options *dialOptions
-	target  resolver.Target
+	rn          chan struct{}
+	wg          sync.WaitGroup
+	options     *dialOptions
+	target      resolver.Target
+	balanceOnce sync.Once
 }
 
 // ResolveNow The method is called by the gRPC framework to resolve the target name
@@ -181,7 +188,17 @@ func (pr *polarisNamingResolver) watcher() {
 		if err != nil {
 			pr.cc.ReportError(err)
 		} else {
-			pr.cc.UpdateState(*state)
+			pr.balanceOnce.Do(func() {
+				state.ServiceConfig = &serviceconfig.ParseResult{
+					Config: &grpc.ServiceConfig{
+						LB: proto.String(scheme),
+					},
+				}
+			})
+			err = pr.cc.UpdateState(*state)
+			if nil != err {
+				grpclog.Errorf("fail to do update service %s: %v", pr.target.URL.Host, err)
+			}
 			var svcKey model.ServiceKey
 			svcKey, eventChan, err = pr.doWatch(consumerAPI)
 			if nil != err {

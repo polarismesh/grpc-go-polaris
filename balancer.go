@@ -40,6 +40,7 @@ type balancerBuilder struct {
 
 // Build 创建一个Balancer
 func (bb *balancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
+	grpclog.Infof("[POLARIS] start to build polaris balancer\n")
 	return &polarisNamingBalancer{
 		cc:       cc,
 		target:   opts.Target,
