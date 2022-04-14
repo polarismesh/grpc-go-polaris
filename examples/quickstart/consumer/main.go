@@ -34,7 +34,7 @@ const (
 )
 
 func main() {
-	//grpc客户端连接获取
+	// grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, "polaris://QuickStartEchoServerGRPC/", grpc.WithInsecure())

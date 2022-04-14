@@ -1,4 +1,4 @@
-# gRPC-Go-Polaris
+# gRPC-Go with Polaris
 
 English | [简体中文](./README-zh.md)
 
