@@ -32,28 +32,33 @@ import (
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
-const (
-	listenPort = 16010
+var (
+	listenPort int
 )
 
-// EchoQuickStartService gRPC echo service struct
-type EchoQuickStartService struct{}
+// EchoCircuitBreakerService gRPC echo service struct
+type EchoRateLimitService struct {
+}
 
 // Echo gRPC testing method
-func (h *EchoQuickStartService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
-	return &pb.EchoResponse{Value: "echo: " + req.Value}, nil
+func (h *EchoRateLimitService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
+	return &pb.EchoResponse{Value: fmt.Sprintf("echo: %s", req.Value)}, nil
 }
 
 func main() {
-	srv := grpc.NewServer()
-	pb.RegisterEchoServerServer(srv, &EchoQuickStartService{})
 	address := fmt.Sprintf("0.0.0.0:%d", listenPort)
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
+	listenAddr := listen.Addr().String()
+	fmt.Printf("listen address is %s\n", listenAddr)
+	interceptor := polaris.NewRateLimitInterceptor().WithServiceName("RateLimitEchoServerGRPC")
+	srv := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryInterceptor))
+	pb.RegisterEchoServerServer(srv, &EchoRateLimitService{})
 	// 执行北极星的注册命令
-	pSrv, err := polaris.Register(srv, listen, polaris.WithServerApplication("QuickStartEchoServerGRPC"))
+	pSrv, err := polaris.Register(srv, listen,
+		polaris.WithServiceName("RateLimitEchoServerGRPC"))
 	if nil != err {
 		log.Fatal(err)
 	}
