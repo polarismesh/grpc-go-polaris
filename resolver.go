@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/serviceconfig"
@@ -143,6 +144,7 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, err
 		// 如果在Conf中配置了SourceService，则优先使用配置
 		instancesRequest.SourceService = sourceService
 	}
+	instancesRequest.SkipRouteFilter = true
 	resp, err := consumerAPI.GetInstances(instancesRequest)
 	if nil != err {
 		return nil, consumerAPI, err
@@ -175,12 +177,15 @@ func (pr *polarisNamingResolver) watcher() {
 	defer pr.wg.Done()
 	var consumerAPI api.ConsumerAPI
 	var eventChan <-chan model.SubScribeEvent
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-pr.ctx.Done():
 			return
 		case <-pr.rn:
 		case <-eventChan:
+		case <-ticker.C:
 		}
 		var state *resolver.State
 		var err error

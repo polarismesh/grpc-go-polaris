@@ -41,11 +41,13 @@ type Server struct {
 type serverOptions struct {
 	gRPCServerOptions []grpc.ServerOption
 	namespace         string
-	application       string
+	svcName           string
+	heartbeatEnable   *bool
 	ttl               int
 	metadata          map[string]string
 	host              string
 	port              int
+	version           string
 	token             string
 }
 
@@ -55,6 +57,9 @@ func (s *serverOptions) setDefault() {
 	}
 	if s.ttl == 0 {
 		s.ttl = DefaultTTL
+	}
+	if s.heartbeatEnable == nil {
+		setHeartbeatEnable(s, true)
 	}
 }
 
@@ -79,10 +84,28 @@ func newFuncServerOption(f func(*serverOptions)) *funcServerOption {
 	}
 }
 
-// WithServerApplication set the application to register instance
+//Deprecated: WithServerApplication set the application to register instance
 func WithServerApplication(application string) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
-		options.application = application
+		options.svcName = application
+	})
+}
+
+// WithServerApplication set the application to register instance
+func WithServiceName(svcName string) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		options.svcName = svcName
+	})
+}
+
+func setHeartbeatEnable(options *serverOptions, enable bool) {
+	options.heartbeatEnable = &enable
+}
+
+// WithHeartbeatEnable enable the heartbeat task to instance
+func WithHeartbeatEnable(enable bool) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setHeartbeatEnable(options, enable)
 	})
 }
 
@@ -121,10 +144,18 @@ func WithServerHost(host string) ServerOption {
 	})
 }
 
+// WithServerVersion set the version to register instance
+func WithServerVersion(version string) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		options.version = version
+	})
+}
+
 // WithTTL set the ttl to register instance
 func WithTTL(ttl int) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.ttl = ttl
+
 	})
 }
 
@@ -188,10 +219,11 @@ func deregisterServices(registerContext *RegisterContext) {
 
 // RegisterContext context parameters by register
 type RegisterContext struct {
-	providerAPI      api.ProviderAPI
-	registerRequests []*api.InstanceRegisterRequest
-	cancel           context.CancelFunc
-	healthCheckWait  *sync.WaitGroup
+	providerAPI       api.ProviderAPI
+	registerRequests  []*api.InstanceRegisterRequest
+	heartbeatRequests []*api.InstanceRegisterRequest
+	cancel            context.CancelFunc
+	healthCheckWait   *sync.WaitGroup
 }
 
 const maxHeartbeatIntervalSec = 60
@@ -290,18 +322,22 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 		registerContext.providerAPI = api.NewProviderAPIByContext(polarisCtx)
 		for name := range svcInfos {
 			var svcName = name
-			if len(srv.serverOptions.application) > 0 {
-				svcName = srv.serverOptions.application
+			if len(srv.serverOptions.svcName) > 0 {
+				svcName = srv.serverOptions.svcName
 			}
 			registerRequest := &api.InstanceRegisterRequest{}
 			registerRequest.Namespace = srv.serverOptions.namespace
 			registerRequest.Service = svcName
 			registerRequest.Host = srv.serverOptions.host
 			registerRequest.Port = srv.serverOptions.port
-			registerRequest.SetTTL(srv.serverOptions.ttl)
 			registerRequest.Protocol = proto.String(lis.Addr().Network())
 			registerRequest.Metadata = srv.serverOptions.metadata
+			registerRequest.Version = proto.String(srv.serverOptions.version)
 			registerRequest.ServiceToken = srv.serverOptions.token
+			if *srv.serverOptions.heartbeatEnable {
+				registerRequest.SetTTL(srv.serverOptions.ttl)
+				registerContext.heartbeatRequests = append(registerContext.heartbeatRequests, registerRequest)
+			}
 			registerContext.registerRequests = append(registerContext.registerRequests, registerRequest)
 			resp, err := registerContext.providerAPI.Register(registerRequest)
 			if nil != err {
@@ -311,8 +347,10 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 			grpclog.Infof("[Polaris]success to register %s:%d to service %s(%s), id %s",
 				registerRequest.Host, registerRequest.Port, name, registerRequest.Namespace, resp.InstanceID)
 		}
-		registerContext.healthCheckWait =
-			srv.startHeartbeat(ctx, registerContext.providerAPI, registerContext.registerRequests)
+		if len(registerContext.heartbeatRequests) > 0 {
+			registerContext.healthCheckWait =
+				srv.startHeartbeat(ctx, registerContext.providerAPI, registerContext.heartbeatRequests)
+		}
 	}
 	srv.registerContext = registerContext
 	return srv, nil

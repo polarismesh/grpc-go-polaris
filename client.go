@@ -125,3 +125,18 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 	target = fmt.Sprintf("%s?%s=%s", target, optionsKey, endpoint)
 	return grpc.DialContext(ctx, target, options.gRPCDialOptions...)
 }
+
+// BuildDialTarget build the invoke grpc target
+func BuildTarget(target string, opts ...DialOption) (string, error) {
+	options := &dialOptions{}
+	for _, opt := range opts {
+		opt.apply(options)
+	}
+	jsonStr, err := json.Marshal(options)
+	if nil != err {
+		return "", fmt.Errorf("fail to marshal options: %v", err)
+	}
+	endpoint := base64.URLEncoding.EncodeToString(jsonStr)
+	target = fmt.Sprintf(prefix+"%s?%s=%s", target, optionsKey, endpoint)
+	return target, nil
+}
