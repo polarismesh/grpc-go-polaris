@@ -24,11 +24,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
-
-	polaris "github.com/polarismesh/grpc-go-polaris"
+	"syscall"
 
 	"google.golang.org/grpc"
 
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
@@ -41,6 +41,7 @@ type EchoQuickStartService struct{}
 
 // Echo gRPC testing method
 func (h *EchoQuickStartService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
+	log.Printf("Ehco is called")
 	return &pb.EchoResponse{Value: "echo: " + req.Value}, nil
 }
 
@@ -53,19 +54,20 @@ func main() {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
 	// 执行北极星的注册命令
-	pSrv, err := polaris.Register(srv, listen, polaris.WithServerApplication("QuickStartEchoServerGRPC"))
+	pSrv, err := polaris.Register(srv, listen, polaris.WithServerApplication("QuickStartEchoServerGRPC222"))
 	if nil != err {
 		log.Fatal(err)
 	}
 	go func() {
 		c := make(chan os.Signal)
-		signal.Notify(c)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		s := <-c
 		log.Printf("receive quit signal: %v", s)
 		// 执行北极星的反注册命令
 		pSrv.Deregister()
 		srv.GracefulStop()
 	}()
+	log.Printf("Provider is running at %s", address)
 	err = srv.Serve(listen)
 	if nil != err {
 		log.Printf("listen err: %v", err)

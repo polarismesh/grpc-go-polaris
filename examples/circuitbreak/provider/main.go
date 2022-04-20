@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"syscall"
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 
@@ -65,7 +66,7 @@ func main() {
 	}
 	go func() {
 		c := make(chan os.Signal)
-		signal.Notify(c)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		s := <-c
 		log.Printf("receive quit signal: %v", s)
 		// 执行北极星的反注册命令

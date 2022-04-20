@@ -34,7 +34,8 @@ const (
 )
 
 func main() {
-	// grpc客户端连接获取
+	address := fmt.Sprintf("0.0.0.0:%d", listenPort)
+	// grpc客户端连接获
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, "polaris://QuickStartEchoServerGRPC/", grpc.WithInsecure())
@@ -69,7 +70,8 @@ func main() {
 		_, _ = w.Write([]byte(resp.GetValue()))
 	}
 	http.HandleFunc("/echo", indexHandler)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil); nil != err {
+	log.Printf("Consumer is running at %s", address)
+	if err := http.ListenAndServe(address, nil); nil != err {
 		log.Fatal(err)
 	}
 
