@@ -25,11 +25,11 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"gopkg.in/check.v1"
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/test/hello"
 	"github.com/polarismesh/grpc-go-polaris/test/mock"
-	"gopkg.in/check.v1"
 )
 
 const (
@@ -56,7 +56,7 @@ func (s *serverTestingSuite) SetUpSuite(c *check.C) {
 	polaris.PolarisConfig().GetConsumer().GetLocalCache().SetStartUseFileCache(false)
 }
 
-//销毁套件
+// 销毁套件
 func (s *serverTestingSuite) TearDownSuite(c *check.C) {
 	s.mockServer.Terminate()
 }
@@ -78,7 +78,7 @@ func (s *serverTestingSuite) TestRegister(c *check.C) {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
 	pSrv, err := polaris.Register(srv, listen,
-		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
+		polaris.WithServiceName(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
 	if nil != err {
 		log.Fatal(err)
 	}

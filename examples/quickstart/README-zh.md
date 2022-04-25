@@ -20,7 +20,7 @@
 global:
   serverConnector:
     addresses:
-    - ${ip}:${port}
+      - ${ip}:${port}
 ```
 
 ## 如何构建
@@ -28,6 +28,7 @@ global:
 依赖 go mod 进行构建。
 
 构建 provider：
+
 ```shell
 cd provider
 go build -o provider
@@ -45,6 +46,7 @@ go build -o consumer
 ### 启动Provider
 
 go mod 编译打包：
+
 ```shell
 cd provider
 go build -o provider
@@ -59,6 +61,7 @@ go build -o provider
 ### 启动Consumer
 
 go mod 编译打包：
+
 ```shell
 cd consumer
 go build -o consumer
@@ -79,6 +82,7 @@ go build -o consumer
 #### HTTP调用
 
 执行http调用，其中`${app.port}`替换为consumer的监听端口（默认为16011）。
+
 ```shell
 curl -L -X GET 'http://localhost:${app.port}/echo?value=hello_world''
 ```

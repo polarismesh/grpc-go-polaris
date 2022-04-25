@@ -1,6 +1,6 @@
 # gRPC-Go-Polaris
 
-[English](./README.md) | 简体中文 
+[English](./README.md) | 简体中文
 
 ---
 
@@ -29,9 +29,11 @@ gRPC-Go-Polaris 主要是在 gRPC-Go 基础上进行接口的扩展，以支持�
 ### 安装方式
 
 基于[Go module](https://github.com/golang/go/wiki/Modules)能力的支持（Go 1.11+），用户只需要在代码中加入以下依赖：
+
 ```
 import "github.com/polarismesh/grpc-go-polaris"
 ```
+
 然后执行 `go [build|run|test]` 后会自动拉取必要的依赖项。
 
 或者，如果需要独立安装 `grpc-go-polaris` 包，可以执行以下命令：

@@ -61,10 +61,10 @@ func targetToOptions(target resolver.Target) (*dialOptions, error) {
 			value, err := base64.URLEncoding.DecodeString(optionsStr)
 			if nil != err {
 				return nil, fmt.Errorf(
-					"fail to decode endpoint %s, options %s: %v", target.Endpoint, optionsStr, err)
+					"fail to decode endpoint %s, options %s: %w", target.URL.Opaque, optionsStr, err)
 			}
 			if err = json.Unmarshal(value, options); nil != err {
-				return nil, fmt.Errorf("fail to unmarshal options %s: %v", string(value), err)
+				return nil, fmt.Errorf("fail to unmarshal options %s: %w", string(value), err)
 			}
 		}
 	}

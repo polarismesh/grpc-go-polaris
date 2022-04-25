@@ -24,11 +24,12 @@ import (
 	"net"
 	"time"
 
+	"google.golang.org/grpc"
+	"gopkg.in/check.v1"
+
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/test/hello"
 	"github.com/polarismesh/grpc-go-polaris/test/mock"
-	"google.golang.org/grpc"
-	"gopkg.in/check.v1"
 )
 
 type clientTestingSuite struct {

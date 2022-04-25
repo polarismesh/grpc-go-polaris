@@ -286,7 +286,7 @@ func (s *Server) startHeartbeat(ctx context.Context,
 	return wg
 }
 
-// Register register server as polaris instances
+// Register server as polaris instances
 func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
 	srv := &Server{}
 	for _, opt := range opts {
@@ -306,14 +306,14 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 		if len(srv.serverOptions.host) == 0 {
 			host, err := getLocalHost(polarisCtx.GetConfig().GetGlobal().GetServerConnector().GetAddresses()[0])
 			if nil != err {
-				return nil, fmt.Errorf("error occur while fetching localhost: %v", err)
+				return nil, fmt.Errorf("error occur while fetching localhost: %w", err)
 			}
 			srv.serverOptions.host = host
 		}
 		if srv.serverOptions.port == 0 {
 			port, err := parsePort(lis.Addr().String())
 			if nil != err {
-				return nil, fmt.Errorf("error occur while parsing port from listener: %v", err)
+				return nil, fmt.Errorf("error occur while parsing port from listener: %w", err)
 			}
 			srv.serverOptions.port = port
 		}
@@ -342,7 +342,7 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 			resp, err := registerContext.providerAPI.Register(registerRequest)
 			if nil != err {
 				deregisterServices(registerContext)
-				return nil, fmt.Errorf("fail to register service %s: %v", name, err)
+				return nil, fmt.Errorf("fail to register service %s: %w", name, err)
 			}
 			grpclog.Infof("[Polaris]success to register %s:%d to service %s(%s), id %s",
 				registerRequest.Host, registerRequest.Port, name, registerRequest.Namespace, resp.InstanceID)

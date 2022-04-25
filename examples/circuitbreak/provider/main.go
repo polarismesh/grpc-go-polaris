@@ -57,7 +57,7 @@ func main() {
 	pb.RegisterEchoServerServer(srv, &EchoCircuitBreakerService{address: listenAddr})
 	// 执行北极星的注册命令
 	_, err = polaris.Register(srv, listen,
-		polaris.WithServerApplication("CircuitBreakerEchoServerGRPC"),
+		polaris.WithServiceName("CircuitBreakerEchoServerGRPC"),
 		polaris.WithHeartbeatEnable(false))
 	if nil != err {
 		log.Fatal(err)

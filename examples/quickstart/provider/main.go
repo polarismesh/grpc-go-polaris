@@ -52,7 +52,7 @@ func main() {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
 	// 执行北极星的注册命令
-	pSrv, err := polaris.Register(srv, listen, polaris.WithServerApplication("QuickStartEchoServerGRPC"))
+	pSrv, err := polaris.Register(srv, listen, polaris.WithServiceName("QuickStartEchoServerGRPC"))
 	if nil != err {
 		log.Fatal(err)
 	}

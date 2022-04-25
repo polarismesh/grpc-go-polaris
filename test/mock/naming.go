@@ -52,7 +52,7 @@ type NamingServer interface {
 	HeartbeatCount(address string) int
 	// ListenAndServe start the server
 	ListenAndServe(int) error
-	// Terminate terminate the server
+	// Terminate the server
 	Terminate()
 }
 
@@ -166,9 +166,9 @@ func (n *namingServer) Discover(stream namingpb.PolarisGRPC_DiscoverServer) erro
 			log.Printf("Discover: server recv error %v\n", err)
 			return err
 		}
-		//log.Printf("Discover: server recv request %v\n", req)
-		var resp *namingpb.DiscoverResponse
-		resp = &namingpb.DiscoverResponse{
+		// log.Printf("Discover: server recv request %v\n", req)
+
+		resp := &namingpb.DiscoverResponse{
 			Type:    namingTypeReqToResp[req.Type],
 			Code:    &wrappers.UInt32Value{Value: namingpb.ExecuteSuccess},
 			Service: req.Service,
@@ -189,7 +189,7 @@ func (n *namingServer) Discover(stream namingpb.PolarisGRPC_DiscoverServer) erro
 			}
 			n.mutex.Unlock()
 		}
-		//log.Printf("send resp, type %v, %v, resp %v", req.Type, req.Service, resp)
+		// log.Printf("send resp, type %v, %v, resp %v", req.Type, req.Service, resp)
 		if err = stream.Send(resp); nil != err {
 			log.Printf("send resp err: %v", err)
 			return err
@@ -249,7 +249,7 @@ func (n *namingServer) ListenAndServe(port int) error {
 	return n.grpcServer.Serve(grpcListener)
 }
 
-// Terminate terminate the server
+// Terminate the server
 func (n *namingServer) Terminate() {
 	n.grpcServer.Stop()
 }

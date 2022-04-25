@@ -30,7 +30,7 @@ var (
 	DefaultNamespace = "default"
 	// DefaultTTL default ttl value when ttl is not set
 	DefaultTTL = 20
-	// LoadBalanceConfig config for do the balance
+	// LoadBalanceConfig config to do the balance
 	LoadBalanceConfig = fmt.Sprintf("{\n  \"loadBalancingConfig\": [ { \"%s\": {} } ]}", scheme)
 )
 
