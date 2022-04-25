@@ -84,6 +84,7 @@ func newFuncServerOption(f func(*serverOptions)) *funcServerOption {
 	}
 }
 
+// WithServerApplication set application name
 // Deprecated: WithServerApplication set the application to register instance
 func WithServerApplication(application string) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {

@@ -66,6 +66,7 @@ func main() {
 	}
 }
 
+// EchoHandler is a http.Handler that implements the echo service.
 type EchoHandler struct {
 	echoClient pb.EchoServerClient
 
