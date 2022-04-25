@@ -71,7 +71,7 @@ func main() {
 		log.Fatal(err)
 	}
 	go func() {
-		c := make(chan os.Signal)
+		c := make(chan os.Signal, 1)
 		signal.Notify(c)
 		s := <-c
 		log.Printf("receive quit signal: %v", s)
