@@ -49,8 +49,8 @@ func PolarisContext() (api.SDKContext, error) {
 		return polarisContext, nil
 	}
 	var err error
-        polarisContext, err = api.InitContextByConfig(PolarisConfig())
-        return polarisContext, err
+	polarisContext, err = api.InitContextByConfig(PolarisConfig())
+	return polarisContext, err
 }
 
 // PolarisConfig get or init the global polaris configuration
