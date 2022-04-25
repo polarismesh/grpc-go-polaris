@@ -25,10 +25,9 @@ import (
 	"os"
 	"os/signal"
 
-	polaris "github.com/polarismesh/grpc-go-polaris"
-
 	"google.golang.org/grpc"
 
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
@@ -69,7 +68,7 @@ func main() {
 		s := <-c
 		log.Printf("receive quit signal: %v", s)
 		// 执行北极星的反注册命令
-		//pSrv.Deregister()
+		// pSrv.Deregister()
 		srv.GracefulStop()
 	}()
 	err = srv.Serve(listen)

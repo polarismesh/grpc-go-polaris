@@ -30,7 +30,6 @@ import (
 	"google.golang.org/grpc"
 
 	_ "github.com/polarismesh/grpc-go-polaris"
-
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 

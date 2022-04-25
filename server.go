@@ -84,14 +84,14 @@ func newFuncServerOption(f func(*serverOptions)) *funcServerOption {
 	}
 }
 
-//Deprecated: WithServerApplication set the application to register instance
+// Deprecated: WithServerApplication set the application to register instance
 func WithServerApplication(application string) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.svcName = application
 	})
 }
 
-// WithServerApplication set the application to register instance
+// WithServiceName set the application to register instance
 func WithServiceName(svcName string) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.svcName = svcName
@@ -102,7 +102,7 @@ func setHeartbeatEnable(options *serverOptions, enable bool) {
 	options.heartbeatEnable = &enable
 }
 
-// WithHeartbeatEnable enable the heartbeat task to instance
+// WithHeartbeatEnable enables the heartbeat task to instance
 func WithHeartbeatEnable(enable bool) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setHeartbeatEnable(options, enable)

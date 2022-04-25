@@ -25,10 +25,9 @@ import (
 	"os"
 	"os/signal"
 
-	polaris "github.com/polarismesh/grpc-go-polaris"
-
 	"google.golang.org/grpc"
 
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
