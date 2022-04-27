@@ -25,11 +25,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
-
-	polaris "github.com/polarismesh/grpc-go-polaris"
+	"syscall"
 
 	"google.golang.org/grpc"
 
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
@@ -39,7 +39,7 @@ var (
 )
 
 func initArgs() {
-	flag.StringVar(&version, "version", "", "eg. 1.0.0")
+	flag.StringVar(&version, "version", "1.0.0", "eg. 1.0.0")
 }
 
 // EchoCircuitBreakerService gRPC echo service struct
@@ -73,7 +73,7 @@ func main() {
 	}
 	go func() {
 		c := make(chan os.Signal)
-		signal.Notify(c)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		s := <-c
 		log.Printf("receive quit signal: %v", s)
 		// 执行北极星的反注册命令

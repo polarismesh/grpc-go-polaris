@@ -3,3 +3,4 @@ polaris/
 .vscode/
 examples/quickstart/consumer/client
 examples/quickstart/provider/server
+vendor
