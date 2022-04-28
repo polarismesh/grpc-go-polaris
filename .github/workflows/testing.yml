@@ -29,30 +29,30 @@ jobs:
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
           version: v1.31
 
-  staticcheckci:
-    name: "staticcheck"
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        fetch-depth: 1
-    - run: "go test ./..."
-    - run: "go vet ./..."
-    - uses: dominikh/staticcheck-action@v1.2.0
-      with:
-        version: "2022.1"
+#   staticcheckci:
+#     name: "staticcheck"
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v1
+#       with:
+#         fetch-depth: 1
+#     - run: "go test ./..."
+#     - run: "go vet ./..."
+#     - uses: dominikh/staticcheck-action@v1.2.0
+#       with:
+#         version: "2022.1"
 
-  tests:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-    steps:
-      - name: Checkout Source
-        uses: actions/checkout@v2
-      - name: Run go-mnd
-        uses: tommy-muehle/go-mnd@master
-        with:
-          args: ./...
+#   tests:
+#     runs-on: ubuntu-latest
+#     env:
+#       GO111MODULE: on
+#     steps:
+#       - name: Checkout Source
+#         uses: actions/checkout@v2
+#       - name: Run go-mnd
+#         uses: tommy-muehle/go-mnd@master
+#         with:
+#           args: ./...
 
 
 
