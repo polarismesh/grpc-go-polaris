@@ -223,7 +223,8 @@ func (n *namingServer) Heartbeat(ctx context.Context, instance *namingpb.Instanc
 			Service:   &namingpb.Service{Name: instance.GetService(), Namespace: instance.GetNamespace()},
 		}, nil
 	}
-	n.heartbeatCounts[addr] = n.heartbeatCounts[addr] + 1
+	// n.heartbeatCounts[addr] = n.heartbeatCounts[addr] + 1
+	n.heartbeatCounts[addr]++
 	return &namingpb.Response{
 		Code:      &wrappers.UInt32Value{Value: namingpb.ExecuteSuccess},
 		Namespace: &namingpb.Namespace{Name: instance.GetNamespace()},

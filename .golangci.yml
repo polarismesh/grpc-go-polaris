@@ -1,3 +1,13 @@
+run:
+  skip-dirs: # 设置要忽略的目录
+    - util
+    - .*~
+    - api/swagger/docs
+  skip-files: # 设置不需要检查的go源码文件，支持正则匹配
+    - ".*.my.go$"
+    - ".*.pb.go$"
+    - _test.go
+
 linters:
   # please, do not use `enable-all`: it's deprecated and will be removed soon.
   # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
@@ -11,7 +21,7 @@ linters:
     - errcheck
     - funlen
     - goconst
-      # - gocritic
+    - gocritic
     - gocyclo
     - gofmt
     - goimports
@@ -25,7 +35,7 @@ linters:
     - nolintlint
     - rowserrcheck
     - scopelint
-    - staticcheck
+#    - staticcheck
     - structcheck
     - stylecheck
     - typecheck
@@ -37,7 +47,12 @@ linters:
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
+  include:
+    - EXC0002 # disable excluding of issues about comments from golint
   exclude-rules:
+    - linters:
+        - stylecheck
+      text: "ST1000:"
     - path: _test\.go
       linters:
         - gomnd
@@ -49,13 +64,23 @@ issues:
 
 linters-settings:
   funlen:
-    lines: 66
-    statements: 40
-
-issues:
-  include:
-  - EXC0002 # disable excluding of issues about comments from golint
-  exclude-rules:
-    - linters:
-       - stylecheck
-      text: "ST1000:"
+    lines: 80
+    statements: 60
+#  errcheck:
+#    check-type-assertions: true # 这里建议设置为true，如果确实不需要检查，可以写成`num, _ := strconv.Atoi(numStr)`
+#    check-blank: false
+  lll:
+    line-length: 240 # 一行的长度
+  godox:
+    keywords: # 建议设置为BUG、FIXME、OPTIMIZE、HACK
+      - BUG
+      - FIXME
+      - OPTIMIZE
+      - HACK
+#  staticcheck:
+#    # Select the Go version to target.
+#    # Default: 1.13
+#    go: "1.15"
+#    # https://staticcheck.io/docs/options#checks
+#    checks: ["all"]
+#    dot_import_whitelist: ["google.golang.org/grpc"]

@@ -26,10 +26,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/protobuf/proto"
 )
 
 // Server encapsulated server with gRPC option
@@ -156,7 +156,6 @@ func WithServerVersion(version string) ServerOption {
 func WithTTL(ttl int) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.ttl = ttl
-
 	})
 }
 
@@ -255,7 +254,7 @@ func (s *Server) startHeartbeat(ctx context.Context,
 			for {
 				select {
 				case <-ctx.Done():
-					grpclog.Infof("[Polaris]heartbeat ticker has stopped")
+					grpclog.Infof("[Polaris]heartbeat ticker has stopped IDX:%d", idx)
 					wg.Done()
 					return
 				case <-ticker.C:

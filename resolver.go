@@ -25,17 +25,14 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/serviceconfig"
-
-	"google.golang.org/grpc/grpclog"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/polarismesh/polaris-go/pkg/model"
-
 	"github.com/polarismesh/polaris-go/api"
+	"github.com/polarismesh/polaris-go/pkg/model"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/attributes"
+	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/serviceconfig"
+	"google.golang.org/protobuf/proto"
 )
 
 type resolverBuilder struct {
@@ -195,6 +192,7 @@ func (pr *polarisNamingResolver) watcher() {
 		} else {
 			pr.balanceOnce.Do(func() {
 				state.ServiceConfig = &serviceconfig.ParseResult{
+					//lint:ignore SA1019 we want to keep the original config here
 					Config: &grpc.ServiceConfig{
 						LB: proto.String(scheme),
 					},
