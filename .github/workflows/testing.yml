@@ -28,16 +28,19 @@ jobs:
         with:
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
           version: v1.31
-  ci:
-	name: "Run CI"
+
+  staticcheckci:
+	name: "staticcheck"
 	runs-on: ubuntu-latest
 	steps:
 	- uses: actions/checkout@v1
 	  with:
 		fetch-depth: 1
-	- uses: dominikh/staticcheck-action@v1.1.0
+	- run: "go test ./..."
+    - run: "go vet ./..."
+	- uses: dominikh/staticcheck-action@v1.2.0
 	  with:
-		version: "2021.1.1"
+		version: "2022.1"
 
   tests:
     runs-on: ubuntu-latest
