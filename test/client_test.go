@@ -24,11 +24,13 @@ import (
 	"net"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"gopkg.in/check.v1"
+
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/test/hello"
 	"github.com/polarismesh/grpc-go-polaris/test/mock"
-	"google.golang.org/grpc"
-	"gopkg.in/check.v1"
 )
 
 type clientTestingSuite struct {
@@ -62,7 +64,7 @@ func (s *clientTestingSuite) TestClientCall(c *check.C) {
 	}
 	log.Printf("success to listen on %s\n", listen.Addr())
 	pSrv, err := polaris.Register(srv, listen,
-		polaris.WithServerApplication(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
+		polaris.WithServiceName(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
 	if nil != err {
 		log.Fatal(err)
 	}
@@ -78,7 +80,7 @@ func (s *clientTestingSuite) TestClientCall(c *check.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	conn, err := polaris.DialContext(ctx, "polaris://"+serverSvc+"/",
-		polaris.WithGRPCDialOptions(grpc.WithInsecure()),
+		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		polaris.WithClientNamespace(serverNamespace))
 	if err != nil {
 		log.Fatal(err)

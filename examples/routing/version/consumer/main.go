@@ -27,12 +27,11 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
-	"google.golang.org/grpc"
-
 	_ "github.com/polarismesh/grpc-go-polaris"
-
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
@@ -44,7 +43,7 @@ const (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, "polaris://VersionEchoServerGRPC", grpc.WithInsecure())
+	conn, err := grpc.DialContext(ctx, "polaris://VersionEchoServerGRPC", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,6 +67,7 @@ func main() {
 	}
 }
 
+// EchoHandler is a http.Handler that implements the echo service.
 type EchoHandler struct {
 	echoClient pb.EchoServerClient
 

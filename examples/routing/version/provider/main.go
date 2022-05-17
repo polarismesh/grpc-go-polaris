@@ -26,10 +26,9 @@ import (
 	"os"
 	"os/signal"
 
-	polaris "github.com/polarismesh/grpc-go-polaris"
-
 	"google.golang.org/grpc"
 
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
@@ -42,7 +41,7 @@ func initArgs() {
 	flag.StringVar(&version, "version", "", "eg. 1.0.0")
 }
 
-// EchoCircuitBreakerService gRPC echo service struct
+// EchoVersionService gRPC echo service struct
 type EchoVersionService struct {
 	version string
 }
@@ -72,7 +71,7 @@ func main() {
 		log.Fatal(err)
 	}
 	go func() {
-		c := make(chan os.Signal)
+		c := make(chan os.Signal, 1)
 		signal.Notify(c)
 		s := <-c
 		log.Printf("receive quit signal: %v", s)

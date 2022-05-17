@@ -121,11 +121,11 @@ func (p *polarisNamingBalancer) createSubConnection(addr resolver.Address) {
 	}
 }
 
-// UpdateClientConnState is called by gRPC when the state of the ClientConn
-// changes.  If the error returned is ErrBadResolverState, the ClientConn
+// UpdateClientConnState is called by gRPC when the state of the ClientConn changes.
+// If the error returned is ErrBadResolverState, the ClientConn
 // will begin calling ResolveNow on the active name resolver with
-// exponential backoff until a subsequent call to UpdateClientConnState
-// returns a nil error.  Any other errors are currently ignored.
+// exponential backoff until a subsequent call to UpdateClientConnState returns a nil error.
+// Any other errors are currently ignored.
 func (p *polarisNamingBalancer) UpdateClientConnState(state balancer.ClientConnState) error {
 	if grpclog.V(2) {
 		grpclog.Infoln("[Polaris]balancer: got new ClientConn state: ", state)
@@ -143,7 +143,8 @@ func (p *polarisNamingBalancer) UpdateClientConnState(state balancer.ClientConnS
 	}
 	// Successful resolution; clear resolver error and ensure we return nil.
 	p.resolverErr = nil
-	// addrsSet is the set converted from addrs, it's used for quick lookup of an address.
+	// addrsSet is the set converted from addrs;
+	// it's used for a quick lookup of an address.
 	addrsSet := make(map[resolver.Address]struct{})
 	for _, a := range state.ResolverState.Addresses {
 		if nil == p.options {
@@ -155,7 +156,7 @@ func (p *polarisNamingBalancer) UpdateClientConnState(state balancer.ClientConnS
 	p.rwMutex.Lock()
 	defer p.rwMutex.Unlock()
 	for a, sc := range p.subConns {
-		// a was removed by resolver.
+		// a way removed by resolver.
 		if _, ok := addrsSet[a]; !ok {
 			p.cc.RemoveSubConn(sc)
 			delete(p.subConns, a)
@@ -184,8 +185,7 @@ func (p *polarisNamingBalancer) ResolverError(err error) {
 	})
 }
 
-// UpdateSubConnState is called by gRPC when the state of a SubConn
-// changes.
+// UpdateSubConnState is called by gRPC when the state of a SubConn changes.
 func (p *polarisNamingBalancer) UpdateSubConnState(sc balancer.SubConn, state balancer.SubConnState) {
 	s := state.ConnectivityState
 	if grpclog.V(2) {
@@ -238,8 +238,8 @@ func (p *polarisNamingBalancer) UpdateSubConnState(sc balancer.SubConn, state ba
 	p.cc.UpdateState(balancer.State{ConnectivityState: p.state, Picker: p.v2Picker})
 }
 
-// regeneratePicker takes a snapshot of the balancer, and generates a picker
-// from it. The picker is
+// regeneratePicker takes a snapshot of the balancer, and generates a picker from it.
+// The picker is
 //  - errPicker if the balancer is in TransientFailure,
 //  - built by the pickerBuilder with all READY SubConns otherwise.
 func (p *polarisNamingBalancer) regeneratePicker(options *dialOptions) {
@@ -263,8 +263,8 @@ func (p *polarisNamingBalancer) regeneratePicker(options *dialOptions) {
 	}
 }
 
-// mergeErrors builds an error from the last connection error and the last
-// resolver error.  Must only be called if b.state is TransientFailure.
+// mergeErrors builds an error from the last connection error and the last resolver error.
+// It Must only be called if the b.state is TransientFailure.
 func (p *polarisNamingBalancer) mergeErrors() error {
 	// connErr must always be non-nil unless there are no SubConns, in which
 	// case resolverErr must be non-nil.
@@ -303,9 +303,10 @@ func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
 
 // Pick returns the connection to use for this RPC and related information.
 //
-// Pick should not block.  If the balancer needs to do I/O or any blocking
-// or time-consuming work to service this call, it should return
-// ErrNoSubConnAvailable, and the Pick call will be repeated by gRPC when
+// Pick should not block.
+// If the balancer needs to do I/O or any blocking
+// or time-consuming work to service this call, it should return to ErrNoSubConnAvailable,
+// and the Pick call will be repeated by gRPC when
 // the Picker is updated (using ClientConn.UpdateState).
 //
 // If an error is returned:
@@ -398,7 +399,7 @@ func (r *resultReporter) report(info balancer.DoneInfo) {
 		callResult.RetStatus = api.RetSuccess
 		code = 0
 	}
-	callResult.SetDelay(time.Now().Sub(r.startTime))
+	callResult.SetDelay(time.Since(r.startTime))
 	callResult.SetRetCode(int32(code))
 	_ = r.consumerAPI.UpdateServiceCallResult(callResult)
 }

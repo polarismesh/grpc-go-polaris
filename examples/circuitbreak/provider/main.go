@@ -25,10 +25,9 @@ import (
 	"os"
 	"os/signal"
 
-	polaris "github.com/polarismesh/grpc-go-polaris"
-
 	"google.golang.org/grpc"
 
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
@@ -58,18 +57,18 @@ func main() {
 	pb.RegisterEchoServerServer(srv, &EchoCircuitBreakerService{address: listenAddr})
 	// 执行北极星的注册命令
 	_, err = polaris.Register(srv, listen,
-		polaris.WithServerApplication("CircuitBreakerEchoServerGRPC"),
+		polaris.WithServiceName("CircuitBreakerEchoServerGRPC"),
 		polaris.WithHeartbeatEnable(false))
 	if nil != err {
 		log.Fatal(err)
 	}
 	go func() {
-		c := make(chan os.Signal)
+		c := make(chan os.Signal, 1)
 		signal.Notify(c)
 		s := <-c
 		log.Printf("receive quit signal: %v", s)
 		// 执行北极星的反注册命令
-		//pSrv.Deregister()
+		// pSrv.Deregister()
 		srv.GracefulStop()
 	}()
 	err = srv.Serve(listen)

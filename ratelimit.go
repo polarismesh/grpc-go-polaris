@@ -19,35 +19,41 @@ package grpcpolaris
 
 import (
 	"context"
+	"strings"
+
 	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
-	"strings"
 )
 
+// RateLimitInterceptor is a gRPC interceptor that implements rate limiting.
 type RateLimitInterceptor struct {
 	namespace string
 	svcName   string
 	limitAPI  api.LimitAPI
 }
 
+// NewRateLimitInterceptor creates a new RateLimitInterceptor.
 func NewRateLimitInterceptor() *RateLimitInterceptor {
 	polarisCtx, _ := PolarisContext()
 	return &RateLimitInterceptor{limitAPI: api.NewLimitAPIByContext(polarisCtx)}
 }
 
+// WithNamespace sets the namespace of the service.
 func (p *RateLimitInterceptor) WithNamespace(namespace string) *RateLimitInterceptor {
 	p.namespace = namespace
 	return p
 }
 
+// WithServiceName sets the service name.
 func (p *RateLimitInterceptor) WithServiceName(svcName string) *RateLimitInterceptor {
 	p.svcName = svcName
 	return p
 }
 
+// UnaryInterceptor returns a unary interceptor for rate limiting.
 func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	fullMethodName := info.FullMethod
@@ -55,16 +61,15 @@ func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interfa
 	if len(tokens) != 3 {
 		return handler(ctx, req)
 	}
-	intfName := tokens[1]
-	quotaReq := api.NewQuotaRequest()
 	namespace := DefaultNamespace
 	if len(p.namespace) > 0 {
 		namespace = p.namespace
 	}
-	serviceName := intfName
+	serviceName := tokens[1]
 	if len(p.svcName) > 0 {
 		serviceName = p.svcName
 	}
+	quotaReq := api.NewQuotaRequest()
 	quotaReq.SetNamespace(namespace)
 	quotaReq.SetService(serviceName)
 	future, err := p.limitAPI.GetQuota(quotaReq)

@@ -26,10 +26,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/protobuf/proto"
 )
 
 // Server encapsulated server with gRPC option
@@ -84,14 +84,15 @@ func newFuncServerOption(f func(*serverOptions)) *funcServerOption {
 	}
 }
 
-//Deprecated: WithServerApplication set the application to register instance
+// WithServerApplication set application name
+// Deprecated: WithServerApplication set the application to register instance
 func WithServerApplication(application string) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.svcName = application
 	})
 }
 
-// WithServerApplication set the application to register instance
+// WithServiceName set the application to register instance
 func WithServiceName(svcName string) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.svcName = svcName
@@ -102,7 +103,7 @@ func setHeartbeatEnable(options *serverOptions, enable bool) {
 	options.heartbeatEnable = &enable
 }
 
-// WithHeartbeatEnable enable the heartbeat task to instance
+// WithHeartbeatEnable enables the heartbeat task to instance
 func WithHeartbeatEnable(enable bool) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setHeartbeatEnable(options, enable)
@@ -155,7 +156,6 @@ func WithServerVersion(version string) ServerOption {
 func WithTTL(ttl int) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.ttl = ttl
-
 	})
 }
 
@@ -254,7 +254,7 @@ func (s *Server) startHeartbeat(ctx context.Context,
 			for {
 				select {
 				case <-ctx.Done():
-					grpclog.Infof("[Polaris]heartbeat ticker has stopped")
+					grpclog.Infof("[Polaris]heartbeat ticker has stopped IDX:%d", idx)
 					wg.Done()
 					return
 				case <-ticker.C:
@@ -286,7 +286,7 @@ func (s *Server) startHeartbeat(ctx context.Context,
 	return wg
 }
 
-// Register register server as polaris instances
+// Register server as polaris instances
 func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
 	srv := &Server{}
 	for _, opt := range opts {
@@ -306,14 +306,14 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 		if len(srv.serverOptions.host) == 0 {
 			host, err := getLocalHost(polarisCtx.GetConfig().GetGlobal().GetServerConnector().GetAddresses()[0])
 			if nil != err {
-				return nil, fmt.Errorf("error occur while fetching localhost: %v", err)
+				return nil, fmt.Errorf("error occur while fetching localhost: %w", err)
 			}
 			srv.serverOptions.host = host
 		}
 		if srv.serverOptions.port == 0 {
 			port, err := parsePort(lis.Addr().String())
 			if nil != err {
-				return nil, fmt.Errorf("error occur while parsing port from listener: %v", err)
+				return nil, fmt.Errorf("error occur while parsing port from listener: %w", err)
 			}
 			srv.serverOptions.port = port
 		}
@@ -342,7 +342,7 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 			resp, err := registerContext.providerAPI.Register(registerRequest)
 			if nil != err {
 				deregisterServices(registerContext)
-				return nil, fmt.Errorf("fail to register service %s: %v", name, err)
+				return nil, fmt.Errorf("fail to register service %s: %w", name, err)
 			}
 			grpclog.Infof("[Polaris]success to register %s:%d to service %s(%s), id %s",
 				registerRequest.Host, registerRequest.Port, name, registerRequest.Namespace, resp.InstanceID)

@@ -26,7 +26,7 @@ import (
 	"gopkg.in/check.v1"
 )
 
-//Test 测试用例主入口
+// Test 测试用例主入口
 func Test(t *testing.T) {
 	go func() {
 		log.Println(http.ListenAndServe("LOCALHOST:6060", nil))
@@ -34,7 +34,7 @@ func Test(t *testing.T) {
 	check.TestingT(t)
 }
 
-//初始化测试套
+// 初始化测试套
 func init() {
 	log.Printf("start to test serverTestingSuite")
 	check.Suite(&serverTestingSuite{})

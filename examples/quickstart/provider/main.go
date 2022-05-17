@@ -25,10 +25,9 @@ import (
 	"os"
 	"os/signal"
 
-	polaris "github.com/polarismesh/grpc-go-polaris"
-
 	"google.golang.org/grpc"
 
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
@@ -53,12 +52,12 @@ func main() {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
 	// 执行北极星的注册命令
-	pSrv, err := polaris.Register(srv, listen, polaris.WithServerApplication("QuickStartEchoServerGRPC"))
+	pSrv, err := polaris.Register(srv, listen, polaris.WithServiceName("QuickStartEchoServerGRPC"))
 	if nil != err {
 		log.Fatal(err)
 	}
 	go func() {
-		c := make(chan os.Signal)
+		c := make(chan os.Signal, 1)
 		signal.Notify(c)
 		s := <-c
 		log.Printf("receive quit signal: %v", s)
