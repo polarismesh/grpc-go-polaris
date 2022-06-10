@@ -20,6 +20,7 @@ package grpcpolaris
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
@@ -32,6 +33,10 @@ var (
 	DefaultTTL = 20
 	// LoadBalanceConfig config to do the balance
 	LoadBalanceConfig = fmt.Sprintf("{\n  \"loadBalancingConfig\": [ { \"%s\": {} } ]}", scheme)
+	// DefaultGraceOfflineMaxWaitDuratin
+	DefaultGracefulOfflineMaxWaitDuration = 30 * time.Second
+	// MinGracefulStopWaitDuration
+	MinGracefulStopWaitDuration = 5 * time.Second
 )
 
 var (
