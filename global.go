@@ -33,7 +33,7 @@ var (
 	DefaultTTL = 20
 	// LoadBalanceConfig config to do the balance
 	LoadBalanceConfig = fmt.Sprintf("{\n  \"loadBalancingConfig\": [ { \"%s\": {} } ]}", scheme)
-	// DefaultGraceOfflineMaxWaitDuratin default offline max wait duration when not set
+	// DefaultGracefulOfflineMaxWaitDuration default offline max wait duration when not set
 	DefaultGracefulOfflineMaxWaitDuration = 30 * time.Second
 	// MinGracefulStopWaitDuration low bound of stop wait duration
 	MinGracefulStopWaitDuration = 5 * time.Second
