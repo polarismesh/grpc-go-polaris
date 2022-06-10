@@ -80,17 +80,19 @@ func (s *serverOptions) setDefault() {
 	}
 }
 
-// delay register strategy. e.g. wait some time
+// DelayRegisterStrategy delay register strategy. e.g. wait some time
 type DelayRegisterStrategy interface {
 	allow() bool
 }
 
+// NoopDelayRegisterStrategy noop delay strategy
 type NoopDelayRegisterStrategy struct{}
 
 func (d *NoopDelayRegisterStrategy) allow() bool {
 	return true
 }
 
+// WaitDelayRegisterStrategy sleep wait delay strategy
 type WaitDelayRegisterStrategy struct {
 	WaitTime time.Duration
 }
@@ -151,6 +153,7 @@ func setGracefulOfflineEnable(options *serverOptions, enable bool) {
 	options.gracefulOfflineEnable = &enable
 }
 
+// WithGracefulOfflineEnable enables graceful offline
 func WithGracefulOfflineEnable(enable bool) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setGracefulOfflineEnable(options, enable)
@@ -161,6 +164,7 @@ func setGracefulOfflineMaxWaitDuration(options *serverOptions, duration time.Dur
 	options.gracefulOfflineMaxWaitDuration = duration
 }
 
+// WithGracefulOfflineMaxWaitDuration set graceful offline max wait duration
 func WithGracefulOfflineMaxWaitDuration(duration time.Duration) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setGracefulOfflineMaxWaitDuration(options, duration)
@@ -171,6 +175,7 @@ func setDelayRegisterStrategy(options *serverOptions, strategy DelayRegisterStra
 	options.delayRegisterStrategy = strategy
 }
 
+// WithDelayRegisterStrategy set delay register strategy
 func WithDelayRegisterStrategy(strategy DelayRegisterStrategy) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setDelayRegisterStrategy(options, strategy)
@@ -353,7 +358,7 @@ func (s *Server) startHeartbeat(ctx context.Context,
 	return wg
 }
 
-// Serve
+// Serve start polaris server
 func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
 	go func() {
 		pSrv, err := Register(gSrv, lis, opts...)
