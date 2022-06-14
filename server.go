@@ -54,7 +54,7 @@ type serverOptions struct {
 	port              int
 	version           string
 	token             string
-	ctrlOptions
+	ctrlOpts          ctrlOptions
 }
 
 type ctrlOptions struct {
@@ -76,27 +76,27 @@ func (s *serverOptions) setDefault() {
 	if s.heartbeatEnable == nil {
 		setHeartbeatEnable(s, true)
 	}
-	if s.delayRegisterEnable == nil {
+	if s.ctrlOpts.delayRegisterEnable == nil {
 		setDelayRegisterEnable(s, false)
 	}
-	if *s.delayRegisterEnable {
-		if s.delayRegisterStrategy == nil {
+	if *s.ctrlOpts.delayRegisterEnable {
+		if s.ctrlOpts.delayRegisterStrategy == nil {
 			setDelayRegisterStrategy(s, &NoopDelayStrategy{})
 		}
 	}
-	if s.delayStopEnable == nil {
+	if s.ctrlOpts.delayStopEnable == nil {
 		setDelayStopEnable(s, true)
 	}
-	if *s.delayStopEnable {
-		if s.delayStopStrategy == nil {
+	if *s.ctrlOpts.delayStopEnable {
+		if s.ctrlOpts.delayStopStrategy == nil {
 			setDelayStopStrategy(s, &WaitDelayStrategy{WaitTime: DefaultDelayStopWaitDuration})
 		}
 	}
-	if s.gracefulStopEnable == nil {
+	if s.ctrlOpts.gracefulStopEnable == nil {
 		setGracefulStopEnable(s, true)
 	}
-	if *s.gracefulStopEnable {
-		if s.gracefulStopMaxWaitDuration <= 0 {
+	if *s.ctrlOpts.gracefulStopEnable {
+		if s.ctrlOpts.gracefulStopMaxWaitDuration <= 0 {
 			setGracefulStopMaxWaitDuration(s, DefaultGracefulStopMaxWaitDuration)
 		}
 	}
@@ -172,11 +172,11 @@ func WithHeartbeatEnable(enable bool) ServerOption {
 }
 
 func setDelayRegisterEnable(options *serverOptions, enable bool) {
-	options.delayRegisterEnable = &enable
+	options.ctrlOpts.delayRegisterEnable = &enable
 }
 
 func setDelayRegisterStrategy(options *serverOptions, strategy DelayStrategy) {
-	options.delayRegisterStrategy = strategy
+	options.ctrlOpts.delayRegisterStrategy = strategy
 }
 
 // EnableDelayRegister enables delay register
@@ -188,11 +188,11 @@ func EnableDelayRegister(strategy DelayStrategy) ServerOption {
 }
 
 func setDelayStopEnable(options *serverOptions, enable bool) {
-	options.delayStopEnable = &enable
+	options.ctrlOpts.delayStopEnable = &enable
 }
 
 func setDelayStopStrategy(options *serverOptions, strategy DelayStrategy) {
-	options.delayStopStrategy = strategy
+	options.ctrlOpts.delayStopStrategy = strategy
 }
 
 // EnableDelayStop enables delay deregister
@@ -204,11 +204,11 @@ func EnableDelayStop(strategy DelayStrategy) ServerOption {
 }
 
 func setGracefulStopEnable(options *serverOptions, enable bool) {
-	options.gracefulStopEnable = &enable
+	options.ctrlOpts.gracefulStopEnable = &enable
 }
 
 func setGracefulStopMaxWaitDuration(options *serverOptions, duration time.Duration) {
-	options.gracefulStopMaxWaitDuration = duration
+	options.ctrlOpts.gracefulStopMaxWaitDuration = duration
 }
 
 // EnableGracefulStop enables graceful stop
@@ -419,8 +419,8 @@ func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
 // Stop deregister and stop
 func (s *Server) Stop() {
 	s.Deregister()
-	if *s.serverOptions.delayStopEnable {
-		delayStrategy := s.serverOptions.delayStopStrategy
+	if *s.serverOptions.ctrlOpts.delayStopEnable {
+		delayStrategy := s.serverOptions.ctrlOpts.delayStopStrategy
 		for {
 			if delayStrategy.allow() {
 				break
@@ -430,14 +430,14 @@ func (s *Server) Stop() {
 		}
 	}
 
-	if *s.serverOptions.gracefulStopEnable {
+	if *s.serverOptions.ctrlOpts.gracefulStopEnable {
 		stopped := make(chan struct{})
 		go func() {
 			s.gServer.GracefulStop()
 			close(stopped)
 		}()
 
-		t := time.NewTimer(s.serverOptions.gracefulStopMaxWaitDuration)
+		t := time.NewTimer(s.serverOptions.ctrlOpts.gracefulStopMaxWaitDuration)
 		select {
 		case <-t.C:
 			s.gServer.Stop()
@@ -481,8 +481,8 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 			srv.serverOptions.port = port
 		}
 
-		if *srv.serverOptions.delayRegisterEnable {
-			delayStrategy := srv.serverOptions.delayRegisterStrategy
+		if *srv.serverOptions.ctrlOpts.delayRegisterEnable {
+			delayStrategy := srv.serverOptions.ctrlOpts.delayRegisterStrategy
 			for {
 				if delayStrategy.allow() {
 					break
