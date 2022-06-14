@@ -44,19 +44,26 @@ type Server struct {
 }
 
 type serverOptions struct {
-	gRPCServerOptions              []grpc.ServerOption
-	namespace                      string
-	svcName                        string
-	heartbeatEnable                *bool
-	ttl                            int
-	gracefulOfflineEnable          *bool
-	gracefulOfflineMaxWaitDuration time.Duration
-	metadata                       map[string]string
-	host                           string
-	port                           int
-	version                        string
-	token                          string
-	delayRegisterStrategy          DelayRegisterStrategy
+	gRPCServerOptions []grpc.ServerOption
+	namespace         string
+	svcName           string
+	heartbeatEnable   *bool
+	ttl               int
+	metadata          map[string]string
+	host              string
+	port              int
+	version           string
+	token             string
+	ctrlOptions
+}
+
+type ctrlOptions struct {
+	delayRegisterEnable         *bool
+	delayRegisterStrategy       DelayStrategy
+	delayStopEnable             *bool
+	delayStopStrategy           DelayStrategy
+	gracefulStopEnable          *bool
+	gracefulStopMaxWaitDuration time.Duration
 }
 
 func (s *serverOptions) setDefault() {
@@ -69,35 +76,50 @@ func (s *serverOptions) setDefault() {
 	if s.heartbeatEnable == nil {
 		setHeartbeatEnable(s, true)
 	}
-	if s.gracefulOfflineEnable == nil {
-		setGracefulOfflineEnable(s, true)
+	if s.delayRegisterEnable == nil {
+		setDelayRegisterEnable(s, false)
 	}
-	if s.gracefulOfflineMaxWaitDuration == 0 {
-		setGracefulOfflineMaxWaitDuration(s, DefaultGracefulOfflineMaxWaitDuration)
+	if *s.delayRegisterEnable {
+		if s.delayRegisterStrategy == nil {
+			setDelayRegisterStrategy(s, &NoopDelayStrategy{})
+		}
 	}
-	if s.delayRegisterStrategy == nil {
-		setDelayRegisterStrategy(s, &NoopDelayRegisterStrategy{})
+	if s.delayStopEnable == nil {
+		setDelayStopEnable(s, true)
+	}
+	if *s.delayStopEnable {
+		if s.delayStopStrategy == nil {
+			setDelayStopStrategy(s, &WaitDelayStrategy{WaitTime: DefaultDelayStopWaitDuration})
+		}
+	}
+	if s.gracefulStopEnable == nil {
+		setGracefulStopEnable(s, true)
+	}
+	if *s.gracefulStopEnable {
+		if s.gracefulStopMaxWaitDuration <= 0 {
+			setGracefulStopMaxWaitDuration(s, DefaultGracefulStopMaxWaitDuration)
+		}
 	}
 }
 
-// DelayRegisterStrategy delay register strategy. e.g. wait some time
-type DelayRegisterStrategy interface {
+// DelayStrategy delay register/deregister strategy. e.g. wait some time
+type DelayStrategy interface {
 	allow() bool
 }
 
-// NoopDelayRegisterStrategy noop delay strategy
-type NoopDelayRegisterStrategy struct{}
+// NoopDelayStrategy noop delay strategy
+type NoopDelayStrategy struct{}
 
-func (d *NoopDelayRegisterStrategy) allow() bool {
+func (d *NoopDelayStrategy) allow() bool {
 	return true
 }
 
-// WaitDelayRegisterStrategy sleep wait delay strategy
-type WaitDelayRegisterStrategy struct {
+// WaitDelayStrategy sleep wait delay strategy
+type WaitDelayStrategy struct {
 	WaitTime time.Duration
 }
 
-func (d *WaitDelayRegisterStrategy) allow() bool {
+func (d *WaitDelayStrategy) allow() bool {
 	time.Sleep(d.WaitTime)
 	return true
 }
@@ -149,36 +171,51 @@ func WithHeartbeatEnable(enable bool) ServerOption {
 	})
 }
 
-func setGracefulOfflineEnable(options *serverOptions, enable bool) {
-	options.gracefulOfflineEnable = &enable
+func setDelayRegisterEnable(options *serverOptions, enable bool) {
+	options.delayRegisterEnable = &enable
 }
 
-// WithGracefulOfflineEnable enables graceful offline
-func WithGracefulOfflineEnable(enable bool) ServerOption {
-	return newFuncServerOption(func(options *serverOptions) {
-		setGracefulOfflineEnable(options, enable)
-	})
-}
-
-func setGracefulOfflineMaxWaitDuration(options *serverOptions, duration time.Duration) {
-	options.gracefulOfflineMaxWaitDuration = duration
-}
-
-// WithGracefulOfflineMaxWaitDuration set graceful offline max wait duration
-func WithGracefulOfflineMaxWaitDuration(duration time.Duration) ServerOption {
-	return newFuncServerOption(func(options *serverOptions) {
-		setGracefulOfflineMaxWaitDuration(options, duration)
-	})
-}
-
-func setDelayRegisterStrategy(options *serverOptions, strategy DelayRegisterStrategy) {
+func setDelayRegisterStrategy(options *serverOptions, strategy DelayStrategy) {
 	options.delayRegisterStrategy = strategy
 }
 
-// WithDelayRegisterStrategy set delay register strategy
-func WithDelayRegisterStrategy(strategy DelayRegisterStrategy) ServerOption {
+// EnableDelayRegister enables delay register
+func EnableDelayRegister(strategy DelayStrategy) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
+		setDelayRegisterEnable(options, true)
 		setDelayRegisterStrategy(options, strategy)
+	})
+}
+
+func setDelayStopEnable(options *serverOptions, enable bool) {
+	options.delayStopEnable = &enable
+}
+
+func setDelayStopStrategy(options *serverOptions, strategy DelayStrategy) {
+	options.delayStopStrategy = strategy
+}
+
+// EnableDelayStop enables delay deregister
+func EnableDelayStop(strategy DelayStrategy) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setDelayStopEnable(options, true)
+		setDelayStopStrategy(options, strategy)
+	})
+}
+
+func setGracefulStopEnable(options *serverOptions, enable bool) {
+	options.gracefulStopEnable = &enable
+}
+
+func setGracefulStopMaxWaitDuration(options *serverOptions, duration time.Duration) {
+	options.gracefulStopMaxWaitDuration = duration
+}
+
+// EnableGracefulStop enables graceful stop
+func EnableGracefulStop(duration time.Duration) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setGracefulStopEnable(options, true)
+		setGracefulStopMaxWaitDuration(options, duration)
 	})
 }
 
@@ -382,22 +419,25 @@ func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
 // Stop deregister and stop
 func (s *Server) Stop() {
 	s.Deregister()
-	if *s.serverOptions.gracefulOfflineEnable {
-		// wait consumers aware of instance change
-		waitDuration := 4 * 2 * time.Second
-		time.Sleep(waitDuration)
+	if *s.serverOptions.delayStopEnable {
+		delayStrategy := s.serverOptions.delayStopStrategy
+		for {
+			if delayStrategy.allow() {
+				break
+			} else {
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}
 
+	if *s.serverOptions.gracefulStopEnable {
 		stopped := make(chan struct{})
 		go func() {
 			s.gServer.GracefulStop()
 			close(stopped)
 		}()
 
-		waitDuration = s.serverOptions.gracefulOfflineMaxWaitDuration - waitDuration
-		if waitDuration < MinGracefulStopWaitDuration {
-			waitDuration = MinGracefulStopWaitDuration
-		}
-		t := time.NewTimer(waitDuration)
+		t := time.NewTimer(s.serverOptions.gracefulStopMaxWaitDuration)
 		select {
 		case <-t.C:
 			s.gServer.Stop()
@@ -441,12 +481,14 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 			srv.serverOptions.port = port
 		}
 
-		delayStrategy := srv.serverOptions.delayRegisterStrategy
-		for {
-			if delayStrategy.allow() {
-				break
-			} else {
-				time.Sleep(100 * time.Millisecond)
+		if *srv.serverOptions.delayRegisterEnable {
+			delayStrategy := srv.serverOptions.delayRegisterStrategy
+			for {
+				if delayStrategy.allow() {
+					break
+				} else {
+					time.Sleep(100 * time.Millisecond)
+				}
 			}
 		}
 

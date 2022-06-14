@@ -53,8 +53,8 @@ func main() {
 	// 启动服务
 	err = polaris.Serve(srv, listen,
 		polaris.WithServiceName("QuickStartEchoServerGRPC"),
-		polaris.WithDelayRegisterStrategy(&polaris.WaitDelayRegisterStrategy{WaitTime: (10 * time.Second)}),
-		polaris.WithGracefulOfflineEnable(true),
+		polaris.EnableDelayRegister(&polaris.WaitDelayStrategy{WaitTime: (10 * time.Second)}),
+		polaris.EnableGracefulStop(10*time.Second),
 	)
 	if nil != err {
 		log.Printf("listen err: %v", err)
