@@ -445,6 +445,8 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 		for {
 			if delayStrategy.allow() {
 				break
+			} else {
+				time.Sleep(100 * time.Millisecond)
 			}
 		}
 
