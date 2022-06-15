@@ -187,6 +187,13 @@ func EnableDelayRegister(strategy DelayStrategy) ServerOption {
 	})
 }
 
+// DisableDelayRegister disable delay register
+func DisableDelayRegister() ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setDelayRegisterEnable(options, false)
+	})
+}
+
 func setDelayStopEnable(options *serverOptions, enable bool) {
 	options.ctrlOpts.delayStopEnable = &enable
 }
@@ -203,6 +210,13 @@ func EnableDelayStop(strategy DelayStrategy) ServerOption {
 	})
 }
 
+// DisableDelayStop disable delay stop
+func DisableDelayStop() ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setDelayStopEnable(options, false)
+	})
+}
+
 func setGracefulStopEnable(options *serverOptions, enable bool) {
 	options.ctrlOpts.gracefulStopEnable = &enable
 }
@@ -216,6 +230,13 @@ func EnableGracefulStop(duration time.Duration) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setGracefulStopEnable(options, true)
 		setGracefulStopMaxWaitDuration(options, duration)
+	})
+}
+
+// DisableGracefulStop disable graceful stop
+func DisableGracefulStop() ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setGracefulStopEnable(options, false)
 	})
 }
 
