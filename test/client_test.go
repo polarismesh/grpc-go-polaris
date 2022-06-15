@@ -56,6 +56,8 @@ func (s *clientTestingSuite) TearDownSuite(c *check.C) {
 }
 
 func (s *clientTestingSuite) TestClientCall(c *check.C) {
+	awaitMockServerReady(serverTestingPort)
+
 	srv := grpc.NewServer()
 	hello.RegisterHelloServer(srv, &helloServer{})
 	listen, err := net.Listen("tcp", "0.0.0.0:58661")
