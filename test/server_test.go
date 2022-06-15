@@ -50,6 +50,8 @@ func (s *serverTestingSuite) SetUpSuite(c *check.C) {
 			log.Fatal()
 		}
 	}()
+	time.Sleep(5 * time.Second)
+
 	polaris.PolarisConfig().GetGlobal().GetServerConnector().SetAddresses(
 		[]string{fmt.Sprintf("127.0.0.1:%d", serverTestingPort)})
 	polaris.PolarisConfig().GetConsumer().GetLocalCache().SetPersistAvailableInterval(1 * time.Millisecond)
