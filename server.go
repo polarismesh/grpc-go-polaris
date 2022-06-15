@@ -54,7 +54,7 @@ type serverOptions struct {
 	port              int
 	version           string
 	token             string
-	ctrlOpts          ctrlOptions
+	ctrlOptions
 }
 
 type ctrlOptions struct {
@@ -76,27 +76,27 @@ func (s *serverOptions) setDefault() {
 	if s.heartbeatEnable == nil {
 		setHeartbeatEnable(s, true)
 	}
-	if s.ctrlOpts.delayRegisterEnable == nil {
+	if s.delayRegisterEnable == nil {
 		setDelayRegisterEnable(s, false)
 	}
-	if *s.ctrlOpts.delayRegisterEnable {
-		if s.ctrlOpts.delayRegisterStrategy == nil {
+	if *s.delayRegisterEnable {
+		if s.delayRegisterStrategy == nil {
 			setDelayRegisterStrategy(s, &NoopDelayStrategy{})
 		}
 	}
-	if s.ctrlOpts.delayStopEnable == nil {
+	if s.delayStopEnable == nil {
 		setDelayStopEnable(s, true)
 	}
-	if *s.ctrlOpts.delayStopEnable {
-		if s.ctrlOpts.delayStopStrategy == nil {
+	if *s.delayStopEnable {
+		if s.delayStopStrategy == nil {
 			setDelayStopStrategy(s, &WaitDelayStrategy{WaitTime: DefaultDelayStopWaitDuration})
 		}
 	}
-	if s.ctrlOpts.gracefulStopEnable == nil {
+	if s.gracefulStopEnable == nil {
 		setGracefulStopEnable(s, true)
 	}
-	if *s.ctrlOpts.gracefulStopEnable {
-		if s.ctrlOpts.gracefulStopMaxWaitDuration <= 0 {
+	if *s.gracefulStopEnable {
+		if s.gracefulStopMaxWaitDuration <= 0 {
 			setGracefulStopMaxWaitDuration(s, DefaultGracefulStopMaxWaitDuration)
 		}
 	}
@@ -172,11 +172,11 @@ func WithHeartbeatEnable(enable bool) ServerOption {
 }
 
 func setDelayRegisterEnable(options *serverOptions, enable bool) {
-	options.ctrlOpts.delayRegisterEnable = &enable
+	options.delayRegisterEnable = &enable
 }
 
 func setDelayRegisterStrategy(options *serverOptions, strategy DelayStrategy) {
-	options.ctrlOpts.delayRegisterStrategy = strategy
+	options.delayRegisterStrategy = strategy
 }
 
 // EnableDelayRegister enables delay register
@@ -195,11 +195,11 @@ func DisableDelayRegister() ServerOption {
 }
 
 func setDelayStopEnable(options *serverOptions, enable bool) {
-	options.ctrlOpts.delayStopEnable = &enable
+	options.delayStopEnable = &enable
 }
 
 func setDelayStopStrategy(options *serverOptions, strategy DelayStrategy) {
-	options.ctrlOpts.delayStopStrategy = strategy
+	options.delayStopStrategy = strategy
 }
 
 // EnableDelayStop enables delay deregister
@@ -218,11 +218,11 @@ func DisableDelayStop() ServerOption {
 }
 
 func setGracefulStopEnable(options *serverOptions, enable bool) {
-	options.ctrlOpts.gracefulStopEnable = &enable
+	options.gracefulStopEnable = &enable
 }
 
 func setGracefulStopMaxWaitDuration(options *serverOptions, duration time.Duration) {
-	options.ctrlOpts.gracefulStopMaxWaitDuration = duration
+	options.gracefulStopMaxWaitDuration = duration
 }
 
 // EnableGracefulStop enables graceful stop
@@ -440,8 +440,8 @@ func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
 // Stop deregister and stop
 func (s *Server) Stop() {
 	s.Deregister()
-	if *s.serverOptions.ctrlOpts.delayStopEnable {
-		delayStrategy := s.serverOptions.ctrlOpts.delayStopStrategy
+	if *s.serverOptions.delayStopEnable {
+		delayStrategy := s.serverOptions.delayStopStrategy
 		for {
 			if delayStrategy.allow() {
 				break
@@ -451,14 +451,14 @@ func (s *Server) Stop() {
 		}
 	}
 
-	if *s.serverOptions.ctrlOpts.gracefulStopEnable {
+	if *s.serverOptions.gracefulStopEnable {
 		stopped := make(chan struct{})
 		go func() {
 			s.gServer.GracefulStop()
 			close(stopped)
 		}()
 
-		t := time.NewTimer(s.serverOptions.ctrlOpts.gracefulStopMaxWaitDuration)
+		t := time.NewTimer(s.serverOptions.gracefulStopMaxWaitDuration)
 		select {
 		case <-t.C:
 			s.gServer.Stop()
@@ -502,8 +502,8 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 			srv.serverOptions.port = port
 		}
 
-		if *srv.serverOptions.ctrlOpts.delayRegisterEnable {
-			delayStrategy := srv.serverOptions.ctrlOpts.delayRegisterStrategy
+		if *srv.serverOptions.delayRegisterEnable {
+			delayStrategy := srv.serverOptions.delayRegisterStrategy
 			for {
 				if delayStrategy.allow() {
 					break
