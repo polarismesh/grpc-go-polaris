@@ -179,18 +179,11 @@ func setDelayRegisterStrategy(options *serverOptions, strategy DelayStrategy) {
 	options.delayRegisterStrategy = strategy
 }
 
-// EnableDelayRegister enables delay register
-func EnableDelayRegister(strategy DelayStrategy) ServerOption {
+// WithDelayRegisterEnable enables delay register
+func WithDelayRegisterEnable(strategy DelayStrategy) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setDelayRegisterEnable(options, true)
 		setDelayRegisterStrategy(options, strategy)
-	})
-}
-
-// DisableDelayRegister disable delay register
-func DisableDelayRegister() ServerOption {
-	return newFuncServerOption(func(options *serverOptions) {
-		setDelayRegisterEnable(options, false)
 	})
 }
 
@@ -202,16 +195,16 @@ func setDelayStopStrategy(options *serverOptions, strategy DelayStrategy) {
 	options.delayStopStrategy = strategy
 }
 
-// EnableDelayStop enables delay deregister
-func EnableDelayStop(strategy DelayStrategy) ServerOption {
+// WithDelayStopEnable enables delay stop
+func WithDelayStopEnable(strategy DelayStrategy) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setDelayStopEnable(options, true)
 		setDelayStopStrategy(options, strategy)
 	})
 }
 
-// DisableDelayStop disable delay stop
-func DisableDelayStop() ServerOption {
+// WithDelayStopDisable disable delay stop
+func WithDelayStopDisable() ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setDelayStopEnable(options, false)
 	})
@@ -225,16 +218,16 @@ func setGracefulStopMaxWaitDuration(options *serverOptions, duration time.Durati
 	options.gracefulStopMaxWaitDuration = duration
 }
 
-// EnableGracefulStop enables graceful stop
-func EnableGracefulStop(duration time.Duration) ServerOption {
+// WithGracefulStopEnable enables graceful stop
+func WithGracefulStopEnable(duration time.Duration) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setGracefulStopEnable(options, true)
 		setGracefulStopMaxWaitDuration(options, duration)
 	})
 }
 
-// DisableGracefulStop disable graceful stop
-func DisableGracefulStop() ServerOption {
+// WithGracefulStopDisable disable graceful stop
+func WithGracefulStopDisable() ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setGracefulStopEnable(options, false)
 	})
