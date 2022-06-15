@@ -70,16 +70,7 @@ func (t *helloServer) SayHello(ctx context.Context, request *hello.HelloRequest)
 }
 
 func (s *serverTestingSuite) TestRegister(c *check.C) {
-	for {
-		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", serverTestingPort))
-		if err != nil {
-			fmt.Printf("dial mock server failed, err:%v\n", err)
-			time.Sleep(1 * time.Second)
-		} else {
-			conn.Close()
-			break
-		}
-	}
+	awaitMockServerReady(serverTestingPort)
 
 	srv := grpc.NewServer()
 	hello.RegisterHelloServer(srv, &helloServer{})
@@ -104,4 +95,17 @@ func (s *serverTestingSuite) TestRegister(c *check.C) {
 	time.Sleep(10 * time.Second)
 	hbCount := s.mockServer.HeartbeatCount(address)
 	c.Check(hbCount > 0, check.Equals, true)
+}
+
+func awaitMockServerReady(port int) {
+	for {
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			fmt.Printf("dial mock server failed, err:%v\n", err)
+			time.Sleep(1 * time.Second)
+		} else {
+			conn.Close()
+			break
+		}
+	}
 }
