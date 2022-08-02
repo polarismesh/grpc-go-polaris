@@ -50,6 +50,7 @@ func (s *serverTestingSuite) SetUpSuite(c *check.C) {
 			log.Fatal()
 		}
 	}()
+
 	polaris.PolarisConfig().GetGlobal().GetServerConnector().SetAddresses(
 		[]string{fmt.Sprintf("127.0.0.1:%d", serverTestingPort)})
 	polaris.PolarisConfig().GetConsumer().GetLocalCache().SetPersistAvailableInterval(1 * time.Millisecond)
@@ -69,6 +70,8 @@ func (t *helloServer) SayHello(ctx context.Context, request *hello.HelloRequest)
 }
 
 func (s *serverTestingSuite) TestRegister(c *check.C) {
+	awaitMockServerReady(serverTestingPort)
+
 	srv := grpc.NewServer()
 	hello.RegisterHelloServer(srv, &helloServer{})
 	// 监听端口
@@ -92,4 +95,17 @@ func (s *serverTestingSuite) TestRegister(c *check.C) {
 	time.Sleep(10 * time.Second)
 	hbCount := s.mockServer.HeartbeatCount(address)
 	c.Check(hbCount > 0, check.Equals, true)
+}
+
+func awaitMockServerReady(port int) {
+	for {
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			fmt.Printf("dial mock server failed, err:%v\n", err)
+			time.Sleep(1 * time.Second)
+		} else {
+			conn.Close()
+			break
+		}
+	}
 }

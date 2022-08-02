@@ -20,10 +20,14 @@ package grpcpolaris
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
@@ -34,6 +38,7 @@ import (
 
 // Server encapsulated server with gRPC option
 type Server struct {
+	gServer         *grpc.Server
 	serverOptions   serverOptions
 	registerContext *RegisterContext
 }
@@ -49,6 +54,16 @@ type serverOptions struct {
 	port              int
 	version           string
 	token             string
+	ctrlOptions
+}
+
+type ctrlOptions struct {
+	delayRegisterEnable         *bool
+	delayRegisterStrategy       DelayStrategy
+	delayStopEnable             *bool
+	delayStopStrategy           DelayStrategy
+	gracefulStopEnable          *bool
+	gracefulStopMaxWaitDuration time.Duration
 }
 
 func (s *serverOptions) setDefault() {
@@ -61,6 +76,52 @@ func (s *serverOptions) setDefault() {
 	if s.heartbeatEnable == nil {
 		setHeartbeatEnable(s, true)
 	}
+	if s.delayRegisterEnable == nil {
+		setDelayRegisterEnable(s, false)
+	}
+	if *s.delayRegisterEnable {
+		if s.delayRegisterStrategy == nil {
+			setDelayRegisterStrategy(s, &NoopDelayStrategy{})
+		}
+	}
+	if s.delayStopEnable == nil {
+		setDelayStopEnable(s, true)
+	}
+	if *s.delayStopEnable {
+		if s.delayStopStrategy == nil {
+			setDelayStopStrategy(s, &WaitDelayStrategy{WaitTime: DefaultDelayStopWaitDuration})
+		}
+	}
+	if s.gracefulStopEnable == nil {
+		setGracefulStopEnable(s, true)
+	}
+	if *s.gracefulStopEnable {
+		if s.gracefulStopMaxWaitDuration <= 0 {
+			setGracefulStopMaxWaitDuration(s, DefaultGracefulStopMaxWaitDuration)
+		}
+	}
+}
+
+// DelayStrategy delay register/deregister strategy. e.g. wait some time
+type DelayStrategy interface {
+	allow() bool
+}
+
+// NoopDelayStrategy noop delay strategy
+type NoopDelayStrategy struct{}
+
+func (d *NoopDelayStrategy) allow() bool {
+	return true
+}
+
+// WaitDelayStrategy sleep wait delay strategy
+type WaitDelayStrategy struct {
+	WaitTime time.Duration
+}
+
+func (d *WaitDelayStrategy) allow() bool {
+	time.Sleep(d.WaitTime)
+	return true
 }
 
 // A ServerOption sets options such as credentials, codec and keepalive parameters, etc.
@@ -107,6 +168,68 @@ func setHeartbeatEnable(options *serverOptions, enable bool) {
 func WithHeartbeatEnable(enable bool) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setHeartbeatEnable(options, enable)
+	})
+}
+
+func setDelayRegisterEnable(options *serverOptions, enable bool) {
+	options.delayRegisterEnable = &enable
+}
+
+func setDelayRegisterStrategy(options *serverOptions, strategy DelayStrategy) {
+	options.delayRegisterStrategy = strategy
+}
+
+// WithDelayRegisterEnable enables delay register
+func WithDelayRegisterEnable(strategy DelayStrategy) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setDelayRegisterEnable(options, true)
+		setDelayRegisterStrategy(options, strategy)
+	})
+}
+
+func setDelayStopEnable(options *serverOptions, enable bool) {
+	options.delayStopEnable = &enable
+}
+
+func setDelayStopStrategy(options *serverOptions, strategy DelayStrategy) {
+	options.delayStopStrategy = strategy
+}
+
+// WithDelayStopEnable enables delay stop
+func WithDelayStopEnable(strategy DelayStrategy) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setDelayStopEnable(options, true)
+		setDelayStopStrategy(options, strategy)
+	})
+}
+
+// WithDelayStopDisable disable delay stop
+func WithDelayStopDisable() ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setDelayStopEnable(options, false)
+	})
+}
+
+func setGracefulStopEnable(options *serverOptions, enable bool) {
+	options.gracefulStopEnable = &enable
+}
+
+func setGracefulStopMaxWaitDuration(options *serverOptions, duration time.Duration) {
+	options.gracefulStopMaxWaitDuration = duration
+}
+
+// WithGracefulStopEnable enables graceful stop
+func WithGracefulStopEnable(duration time.Duration) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setGracefulStopEnable(options, true)
+		setGracefulStopMaxWaitDuration(options, duration)
+	})
+}
+
+// WithGracefulStopDisable disable graceful stop
+func WithGracefulStopDisable() ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setGracefulStopEnable(options, false)
 	})
 }
 
@@ -286,9 +409,63 @@ func (s *Server) startHeartbeat(ctx context.Context,
 	return wg
 }
 
+// Serve start polaris server
+func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
+	go func() {
+		pSrv, err := Register(gSrv, lis, opts...)
+		if err != nil {
+			log.Fatalf("polaris register err: %v", err)
+		}
+
+		go func() {
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+			s := <-c
+			log.Printf("receive quit signal: %v", s)
+			signal.Stop(c)
+			pSrv.Stop()
+		}()
+	}()
+
+	return gSrv.Serve(lis)
+}
+
+// Stop deregister and stop
+func (s *Server) Stop() {
+	s.Deregister()
+	if *s.serverOptions.delayStopEnable {
+		delayStrategy := s.serverOptions.delayStopStrategy
+		for {
+			if delayStrategy.allow() {
+				break
+			} else {
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}
+
+	if *s.serverOptions.gracefulStopEnable {
+		stopped := make(chan struct{})
+		go func() {
+			s.gServer.GracefulStop()
+			close(stopped)
+		}()
+
+		t := time.NewTimer(s.serverOptions.gracefulStopMaxWaitDuration)
+		select {
+		case <-t.C:
+			s.gServer.Stop()
+		case <-stopped:
+			t.Stop()
+		}
+	} else {
+		s.gServer.Stop()
+	}
+}
+
 // Register server as polaris instances
 func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
-	srv := &Server{}
+	srv := &Server{gServer: gSrv}
 	for _, opt := range opts {
 		opt.apply(&srv.serverOptions)
 	}
@@ -316,6 +493,17 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 				return nil, fmt.Errorf("error occur while parsing port from listener: %w", err)
 			}
 			srv.serverOptions.port = port
+		}
+
+		if *srv.serverOptions.delayRegisterEnable {
+			delayStrategy := srv.serverOptions.delayRegisterStrategy
+			for {
+				if delayStrategy.allow() {
+					break
+				} else {
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
 		}
 
 		registerContext.registerRequests = make([]*api.InstanceRegisterRequest, 0, len(svcInfos))
