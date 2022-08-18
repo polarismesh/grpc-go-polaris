@@ -20,6 +20,8 @@ package main
 import (
 	"context"
 	"fmt"
+	polaris "github.com/polarismesh/grpc-go-polaris"
+	"github.com/polarismesh/polaris-go/pkg/config"
 	"log"
 	"net/http"
 
@@ -38,7 +40,29 @@ func main() {
 	// grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, "polaris://QuickStartEchoServerGRPC/", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cfg := &config.ConfigurationImpl{
+		Global: &config.GlobalConfigImpl{
+			System: &config.SystemConfigImpl{
+				DiscoverCluster: &config.ServerClusterConfigImpl{
+					Namespace: "Polaris-test",
+					Service:   "polaris.discover-test",
+				},
+			},
+			ServerConnector: &config.ServerConnectorConfigImpl{
+				Addresses: []string{"127.0.0.1:8081", "127.0.0.1:8081"},
+			},
+		},
+		Consumer: &config.ConsumerConfigImpl{
+			LocalCache: &config.LocalCacheConfigImpl{
+				PersistDir: "/var/polaris",
+			},
+		},
+	}
+	targetAddress, err := polaris.BuildTarget("HelloWorld",
+		polaris.WithClientNamespace("Test"),
+		polaris.WithConfig(cfg))
+
+	conn, err := grpc.DialContext(ctx, targetAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal(err)
 	}

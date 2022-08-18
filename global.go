@@ -19,6 +19,8 @@ package grpcpolaris
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"log"
 	"sync"
 	"time"
 
@@ -62,8 +64,21 @@ func PolarisContext() (api.SDKContext, error) {
 
 // PolarisConfig get or init the global polaris configuration
 func PolarisConfig() config.Configuration {
-	oncePolarisConfig.Do(func() {
-		polarisConfig = api.NewConfiguration()
-	})
+	if polarisConfig == nil {
+		oncePolarisConfig.Do(func() {
+			polarisConfig = api.NewConfiguration()
+		})
+	}
 	return polarisConfig
+}
+
+// SetPolarisConfig set the global polaris configuration
+func SetPolarisConfig(cfg config.Configuration) {
+	bs, _ := yaml.Marshal(cfg)
+	var err error
+	polarisConfig, err = config.LoadConfiguration(bs)
+	if err != nil {
+		log.Printf("load config err (%+v)", err)
+	}
+	return
 }
