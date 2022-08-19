@@ -20,16 +20,15 @@ package main
 import (
 	"context"
 	"fmt"
-	polaris "github.com/polarismesh/grpc-go-polaris"
-	"github.com/polarismesh/polaris-go/pkg/config"
 	"log"
 	"net/http"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	_ "github.com/polarismesh/grpc-go-polaris"
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
+	"github.com/polarismesh/polaris-go/pkg/config"
 )
 
 const (

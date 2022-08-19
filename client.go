@@ -22,9 +22,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/polarismesh/polaris-go/pkg/config"
 	"google.golang.org/grpc"
-	"strings"
 )
 
 // DialOption dialOptions for gRPC-Go-Polaris

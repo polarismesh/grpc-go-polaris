@@ -19,13 +19,13 @@ package grpcpolaris
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
+	"gopkg.in/yaml.v3"
 )
 
 var (
