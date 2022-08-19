@@ -19,11 +19,8 @@ package grpcpolaris
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
@@ -75,10 +72,5 @@ func PolarisConfig() config.Configuration {
 
 // SetPolarisConfig set the global polaris configuration
 func SetPolarisConfig(cfg config.Configuration) {
-	bs, _ := yaml.Marshal(cfg)
-	var err error
-	polarisConfig, err = config.LoadConfiguration(bs)
-	if err != nil {
-		log.Printf("load config err (%+v)", err)
-	}
+	polarisConfig = cfg
 }

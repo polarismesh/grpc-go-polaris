@@ -57,8 +57,8 @@ type dialOptions struct {
 	SrcMetadata     map[string]string `json:"src_metadata"`
 	SrcService      string            `json:"src_service"`
 	// 可选，规则路由Meta匹配前缀，用于过滤作为路由规则的gRPC Header
-	HeaderPrefix []string                  `json:"header_prefix"`
-	Config       *config.ConfigurationImpl `json:"-"`
+	HeaderPrefix []string             `json:"header_prefix"`
+	Config       config.Configuration `json:"-"`
 }
 
 // WithGRPCDialOptions set the raw gRPC dialOption
@@ -104,7 +104,7 @@ func WithHeaderPrefix(headerPrefix []string) DialOption {
 }
 
 // WithConfig set polaris configuration
-func WithConfig(config *config.ConfigurationImpl) DialOption {
+func WithConfig(config config.Configuration) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.Config = config
 	})
