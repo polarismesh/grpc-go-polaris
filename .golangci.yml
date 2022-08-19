@@ -3,6 +3,7 @@ run:
     - util
     - .*~
     - api/swagger/docs
+    - doc
   skip-files: # 设置不需要检查的go源码文件，支持正则匹配
     - ".*.my.go$"
     - ".*.pb.go$"
@@ -21,13 +22,10 @@ linters:
     - errcheck
     - funlen
     - goconst
-    #    - gocritic
     - gocyclo
     - gofmt
     - goimports
-    # - golint
     - goprintffuncname
-    # - gosimple
     - govet
     - ineffassign
     - misspell
@@ -53,6 +51,8 @@ issues:
     - path: _test\.go
       linters:
         - gomnd
+        - funlen
+        - goconst
 
     # https://github.com/go-critic/go-critic/issues/926
     - linters:
@@ -60,9 +60,6 @@ issues:
       text: "unnecessaryDefer:"
 
 linters-settings:
-  funlen:
-    lines: 80
-    statements: 60
   #  errcheck:
   #    check-type-assertions: true # 这里建议设置为true，如果确实不需要检查，可以写成`num, _ := strconv.Atoi(numStr)`
   #    check-blank: false
@@ -115,3 +112,17 @@ linters-settings:
         severity: warning
         disabled: false
         arguments: [4]
+
+  funlen:
+    # Checks the number of lines in a function.
+    # If lower than 0, disable the check.
+    # Default: 60
+    lines: 160
+    # Checks the number of statements in a function.
+    # If lower than 0, disable the check.
+    # Default: 40
+    statements: 160
+  goconst:
+    # Ignore test files.
+    # Default: false
+    ignore-tests: true
