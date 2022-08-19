@@ -23,9 +23,10 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -80,5 +81,4 @@ func SetPolarisConfig(cfg config.Configuration) {
 	if err != nil {
 		log.Printf("load config err (%+v)", err)
 	}
-	return
 }

@@ -24,8 +24,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/polarismesh/polaris-go/pkg/config"
 	"google.golang.org/grpc"
+
+	"github.com/polarismesh/polaris-go/pkg/config"
 )
 
 // DialOption dialOptions for gRPC-Go-Polaris
@@ -102,7 +103,7 @@ func WithHeaderPrefix(headerPrefix []string) DialOption {
 	})
 }
 
-// WithSrcService set the srcMetadata for dial service routing
+// WithConfig set polaris configuration
 func WithConfig(config *config.ConfigurationImpl) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.Config = config
