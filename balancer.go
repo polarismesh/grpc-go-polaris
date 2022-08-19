@@ -87,8 +87,7 @@ func (p *polarisNamingBalancer) HandleSubConnStateChange(sc balancer.SubConn, st
 	panic("not implemented")
 }
 
-// HandleResolvedAddrs is called by gRPC to send updated resolved addresses to
-// balancers.
+// HandleResolvedAddrs is called by gRPC to send updated resolved addresses to balancers.
 // Balancer can create new SubConn or remove SubConn with the addresses.
 // An empty address slice and a non-nil error will be passed if the resolver returns
 // non-nil error to gRPC.
@@ -239,9 +238,8 @@ func (p *polarisNamingBalancer) UpdateSubConnState(sc balancer.SubConn, state ba
 }
 
 // regeneratePicker takes a snapshot of the balancer, and generates a picker from it.
-// The picker is
-//  - errPicker if the balancer is in TransientFailure,
-//  - built by the pickerBuilder with all READY SubConns otherwise.
+// The picker is errPicker if the balancer is in TransientFailure,
+// built by the pickerBuilder with all READY SubConns otherwise.
 func (p *polarisNamingBalancer) regeneratePicker(options *dialOptions) {
 	if p.state == connectivity.TransientFailure {
 		p.v2Picker = base.NewErrPicker(p.mergeErrors())
@@ -311,17 +309,16 @@ func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
 //
 // If an error is returned:
 //
-// - If the error is ErrNoSubConnAvailable, gRPC will block until a new
-//   Picker is provided by the balancer (using ClientConn.UpdateState).
+//	If the error is ErrNoSubConnAvailable, gRPC will block until a new
+//	Picker is provided by the balancer (using ClientConn.UpdateState).
 //
-// - If the error implements IsTransientFailure() bool, returning true,
-//   wait for ready RPCs will wait, but non-wait for ready RPCs will be
-//   terminated with this error's Error() string and status code
-//   Unavailable.
+//	If the error implements IsTransientFailure() bool, returning true,
+//	wait for ready RPCs will wait, but non-wait for ready RPCs will be
+//	terminated with this error's Error() string and status code Unavailable.
 //
-// - Any other errors terminate all RPCs with the code and message
-//   provided.  If the error is not a status error, it will be converted by
-//   gRPC to a status error with code Unknown.
+//	Any other errors terminate all RPCs with the code and message provided.
+//	If the error is not a status error, it will be converted by
+//	gRPC to a status error with code Unknown.
 func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	request := &api.GetOneInstanceRequest{}
 	request.Namespace = getNamespace(pnp.options)
