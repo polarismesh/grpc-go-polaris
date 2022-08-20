@@ -20,7 +20,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/polarismesh/polaris-go/api"
 	"log"
 	"net/http"
 
@@ -29,6 +28,7 @@ import (
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
+	"github.com/polarismesh/polaris-go/api"
 )
 
 const (
