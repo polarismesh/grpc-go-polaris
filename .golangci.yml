@@ -3,6 +3,7 @@ run:
     - util
     - .*~
     - api/swagger/docs
+    - doc
   skip-files: # 设置不需要检查的go源码文件，支持正则匹配
     - ".*.my.go$"
     - ".*.pb.go$"
@@ -21,22 +22,16 @@ linters:
     - errcheck
     - funlen
     - goconst
-#    - gocritic
     - gocyclo
     - gofmt
     - goimports
-    - golint
     - goprintffuncname
-    - gosimple
     - govet
     - ineffassign
-    - interfacer
     - misspell
     - nolintlint
     - rowserrcheck
-    - scopelint
-#    - staticcheck
-#    - structcheck
+    - revive
     - stylecheck
     - typecheck
     - unconvert
@@ -56,6 +51,8 @@ issues:
     - path: _test\.go
       linters:
         - gomnd
+        - funlen
+        - goconst
 
     # https://github.com/go-critic/go-critic/issues/926
     - linters:
@@ -63,14 +60,11 @@ issues:
       text: "unnecessaryDefer:"
 
 linters-settings:
-  funlen:
-    lines: 80
-    statements: 60
-#  errcheck:
-#    check-type-assertions: true # 这里建议设置为true，如果确实不需要检查，可以写成`num, _ := strconv.Atoi(numStr)`
-#    check-blank: false
+  #  errcheck:
+  #    check-type-assertions: true # 这里建议设置为true，如果确实不需要检查，可以写成`num, _ := strconv.Atoi(numStr)`
+  #    check-blank: false
   lll:
-    line-length: 240 # 一行的长度
+    line-length: 180 # 一行的长度
   godox:
     keywords: # 建议设置为BUG、FIXME、OPTIMIZE、HACK
       - BUG
@@ -84,3 +78,51 @@ linters-settings:
 #    # https://staticcheck.io/docs/options#checks
 #    checks: ["all"]
 #    dot_import_whitelist: ["google.golang.org/grpc"]
+
+  revive:
+    ignore-generated-header: true
+    severity: error
+    rules:
+      - name: atomic
+      - name: line-length-limit
+        severity: error
+        arguments: [ 180 ]
+      - name: unhandled-error
+        arguments: [ "fmt.Printf", "myFunction" ]
+      - name: var-naming
+        severity: warning
+        disabled: false
+        arguments:
+          - [ "ID","URL","IP","HTTP","JSON","API","UID","Id","Api","Uid","Http","Json","Ip","Url" ] # AllowList
+          - [ "VM" ] # DenyList
+      - name: string-format
+        severity: warning
+        disabled: false
+        arguments:
+          - - 'core.WriteError[1].Message'
+            - '/^([^A-Z]|$)/'
+            - must not start with a capital letter
+          - - 'fmt.Errorf[0]'
+            - '/(^|[^\.!?])$/'
+            - must not end in punctuation
+          - - panic
+            - '/^[^\n]*$/'
+            - must not contain line breaks
+      - name: function-result-limit
+        severity: warning
+        disabled: false
+        arguments: [4]
+
+  funlen:
+    # Checks the number of lines in a function.
+    # If lower than 0, disable the check.
+    # Default: 60
+    lines: 160
+    # Checks the number of statements in a function.
+    # If lower than 0, disable the check.
+    # Default: 40
+    statements: 160
+  goconst:
+    # Ignore test files.
+    # Default: false
+    ignore-tests: true

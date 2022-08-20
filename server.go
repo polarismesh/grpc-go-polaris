@@ -438,9 +438,8 @@ func (s *Server) Stop() {
 		for {
 			if delayStrategy.allow() {
 				break
-			} else {
-				time.Sleep(100 * time.Millisecond)
 			}
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 
@@ -500,9 +499,8 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 			for {
 				if delayStrategy.allow() {
 					break
-				} else {
-					time.Sleep(100 * time.Millisecond)
 				}
+				time.Sleep(100 * time.Millisecond)
 			}
 		}
 
