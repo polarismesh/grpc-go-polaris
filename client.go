@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
+
+	"github.com/polarismesh/polaris-go/pkg/config"
 )
 
 // DialOption dialOptions for gRPC-Go-Polaris
@@ -55,7 +57,8 @@ type dialOptions struct {
 	SrcMetadata     map[string]string `json:"src_metadata"`
 	SrcService      string            `json:"src_service"`
 	// 可选，规则路由Meta匹配前缀，用于过滤作为路由规则的gRPC Header
-	HeaderPrefix []string `json:"header_prefix"`
+	HeaderPrefix []string             `json:"header_prefix"`
+	Config       config.Configuration `json:"-"`
 }
 
 // WithGRPCDialOptions set the raw gRPC dialOption
@@ -100,6 +103,13 @@ func WithHeaderPrefix(headerPrefix []string) DialOption {
 	})
 }
 
+// WithConfig set polaris configuration
+func WithConfig(config config.Configuration) DialOption {
+	return newFuncDialOption(func(options *dialOptions) {
+		options.Config = config
+	})
+}
+
 const (
 	scheme     = "polaris"
 	prefix     = scheme + "://"
@@ -136,6 +146,7 @@ func BuildTarget(target string, opts ...DialOption) (string, error) {
 	if nil != err {
 		return "", fmt.Errorf("fail to marshal options: %w", err)
 	}
+	SetPolarisConfig(options.Config)
 	endpoint := base64.URLEncoding.EncodeToString(jsonStr)
 	target = fmt.Sprintf(prefix+"%s?%s=%s", target, optionsKey, endpoint)
 	return target, nil

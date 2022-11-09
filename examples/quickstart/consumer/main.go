@@ -26,8 +26,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	_ "github.com/polarismesh/grpc-go-polaris"
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
+	"github.com/polarismesh/polaris-go/api"
 )
 
 const (
@@ -38,7 +39,15 @@ func main() {
 	// grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, "polaris://QuickStartEchoServerGRPC/", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cfg := api.NewConfiguration()
+	cfg.GetGlobal().GetServerConnector().SetAddresses([]string{
+		"127.0.0.1:8081",
+	})
+	targetAddress, err := polaris.BuildTarget("HelloWorld",
+		polaris.WithClientNamespace("Test"),
+		polaris.WithConfig(cfg))
+
+	conn, err := grpc.DialContext(ctx, targetAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal(err)
 	}

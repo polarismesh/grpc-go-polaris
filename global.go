@@ -62,8 +62,15 @@ func PolarisContext() (api.SDKContext, error) {
 
 // PolarisConfig get or init the global polaris configuration
 func PolarisConfig() config.Configuration {
-	oncePolarisConfig.Do(func() {
-		polarisConfig = api.NewConfiguration()
-	})
+	if polarisConfig == nil {
+		oncePolarisConfig.Do(func() {
+			polarisConfig = api.NewConfiguration()
+		})
+	}
 	return polarisConfig
+}
+
+// SetPolarisConfig set the global polaris configuration
+func SetPolarisConfig(cfg config.Configuration) {
+	polarisConfig = cfg
 }
