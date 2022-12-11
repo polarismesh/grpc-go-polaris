@@ -25,12 +25,8 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/serviceconfig"
-
 	"google.golang.org/grpc/grpclog"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/polarismesh/polaris-go/pkg/model"
 
 	"github.com/polarismesh/polaris-go/api"
@@ -93,7 +89,8 @@ func (rb *resolverBuilder) Build(
 	}
 	d.wg.Add(1)
 	go d.watcher()
-	d.ResolveNow(resolver.ResolveNowOptions{})
+	d.rn <- struct{}{}
+	//d.ResolveNow(resolver.ResolveNowOptions{})
 	return d, nil
 }
 
@@ -107,14 +104,15 @@ type polarisNamingResolver struct {
 	options     *dialOptions
 	target      resolver.Target
 	balanceOnce sync.Once
+	watchOnce   sync.Once
 }
 
 // ResolveNow The method is called by the gRPC framework to resolve the target name
 func (pr *polarisNamingResolver) ResolveNow(opt resolver.ResolveNowOptions) { // 立即resolve，重新查询服务信息
-	select {
-	case pr.rn <- struct{}{}:
-	default:
-	}
+	//select {
+	//case pr.rn <- struct{}{}:
+	//default:
+	//}
 }
 
 func getNamespace(options *dialOptions) string {
@@ -144,7 +142,7 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, err
 		// 如果在Conf中配置了SourceService，则优先使用配置
 		instancesRequest.SourceService = sourceService
 	}
-	instancesRequest.SkipRouteFilter = true
+	//instancesRequest.SkipRouteFilter = true
 	resp, err := consumerAPI.GetInstances(instancesRequest)
 	if nil != err {
 		return nil, consumerAPI, err
@@ -193,22 +191,24 @@ func (pr *polarisNamingResolver) watcher() {
 		if err != nil {
 			pr.cc.ReportError(err)
 		} else {
-			pr.balanceOnce.Do(func() {
-				state.ServiceConfig = &serviceconfig.ParseResult{
-					Config: &grpc.ServiceConfig{
-						LB: proto.String(scheme),
-					},
-				}
-			})
+			//pr.balanceOnce.Do(func() {
+			//	state.ServiceConfig = &serviceconfig.ParseResult{
+			//		Config: &grpc.ServiceConfig{
+			//			LB: proto.String(scheme),
+			//		},
+			//	}
+			//})
 			err = pr.cc.UpdateState(*state)
 			if nil != err {
 				grpclog.Errorf("fail to do update service %s: %v", pr.target.URL.Host, err)
 			}
-			var svcKey model.ServiceKey
-			svcKey, eventChan, err = pr.doWatch(consumerAPI)
-			if nil != err {
-				grpclog.Errorf("fail to do watch for service %s: %v", svcKey, err)
-			}
+			pr.watchOnce.Do(func() {
+				var svcKey model.ServiceKey
+				svcKey, eventChan, err = pr.doWatch(consumerAPI)
+				if nil != err {
+					grpclog.Errorf("fail to do watch for service %s: %v", svcKey, err)
+				}
+			})
 		}
 	}
 }

@@ -59,7 +59,7 @@ func main() {
 	}
 	go func() {
 		c := make(chan os.Signal)
-		signal.Notify(c)
+		signal.Notify(c, os.Kill, os.Interrupt)
 		s := <-c
 		log.Printf("receive quit signal: %v", s)
 		// 执行北极星的反注册命令
