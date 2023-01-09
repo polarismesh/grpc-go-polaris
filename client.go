@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -36,9 +35,7 @@ const (
 
 // DialContext dial target and get connection
 func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *grpc.ClientConn, err error) {
-	options := &dialOptions{
-		Route: true,
-	}
+	options := &dialOptions{}
 	for _, opt := range opts {
 		opt.apply(options)
 	}
@@ -65,9 +62,7 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 // BuildTarget build the invoker grpc target
 // Deprecated: will remove in 1.4
 func BuildTarget(target string, opts ...DialOption) (string, error) {
-	options := &dialOptions{
-		Route: true,
-	}
+	options := &dialOptions{}
 	for _, opt := range opts {
 		opt.apply(options)
 	}
@@ -89,14 +84,8 @@ func injectCallerInfo(options *dialOptions) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn,
 		invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 
-		if _, ok := metadata.FromOutgoingContext(ctx); !ok {
-			ctx = metadata.NewOutgoingContext(context.Background(), metadata.MD{})
-		}
-
-		if len(options.SrcService) > 0 {
-			ctx = metadata.AppendToOutgoingContext(ctx, polarisCallerServiceKey, options.SrcService)
-			ctx = metadata.AppendToOutgoingContext(ctx, polarisCallerNamespaceKey, options.Namespace)
-		}
+		ctx = context.WithValue(ctx, polarisCallerServiceKey, options.SrcService)
+		ctx = context.WithValue(ctx, polarisCallerNamespaceKey, options.Namespace)
 
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}

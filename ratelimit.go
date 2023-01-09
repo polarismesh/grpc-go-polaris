@@ -20,18 +20,18 @@ package grpcpolaris
 import (
 	"context"
 	"fmt"
+	"github.com/polarismesh/polaris-go/pkg/flow/data"
+	"github.com/polarismesh/polaris-go/pkg/model"
+	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"strings"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
-	"github.com/polarismesh/polaris-go/pkg/flow/data"
-	"github.com/polarismesh/polaris-go/pkg/model"
-	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -64,8 +64,8 @@ func (p *RateLimitInterceptor) WithServiceName(svcName string) *RateLimitInterce
 func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 
-	quotaReq := p.buildQuotaRequest(ctx, req, info)
-	if quotaReq == nil {
+	quotaReq, err := p.buildQuotaRequest(ctx, req, info)
+	if err != nil {
 		return handler(ctx, req)
 	}
 
@@ -82,12 +82,12 @@ func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interfa
 }
 
 func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interface{},
-	info *grpc.UnaryServerInfo) api.QuotaRequest {
+	info *grpc.UnaryServerInfo) (api.QuotaRequest, error) {
 
 	fullMethodName := info.FullMethod
 	tokens := strings.Split(fullMethodName, "/")
 	if len(tokens) != 3 {
-		return nil
+		return nil, nil
 	}
 	namespace := DefaultNamespace
 	if len(p.namespace) > 0 {
@@ -104,9 +104,9 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 		quotaReq.SetMethod(fullMethodName)
 	}
 
-	matchs, ok := p.fetchArguments(quotaReq.(*model.QuotaRequestImpl))
+	matchs, ok := p.fetchArguments(req.(*model.QuotaRequestImpl))
 	if !ok {
-		return quotaReq
+		return quotaReq, nil
 	}
 	header, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -116,12 +116,6 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 	for i := range matchs {
 		item := matchs[i]
 		switch item.GetType() {
-		case v1.MatchArgument_CALLER_SERVICE:
-			serviceValues := header.Get(polarisCallerServiceKey)
-			namespaceValues := header.Get(polarisCallerNamespaceKey)
-			if len(serviceValues) > 0 && len(namespaceValues) > 0 {
-				quotaReq.AddArgument(model.BuildCallerServiceArgument(namespaceValues[0], serviceValues[0]))
-			}
 		case v1.MatchArgument_HEADER:
 			values := header.Get(item.GetKey())
 			if len(values) > 0 {
@@ -134,12 +128,13 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 				if len(addrSlice) == 2 {
 					clientIP := addrSlice[0]
 					quotaReq.AddArgument(model.BuildCallerIPArgument(clientIP))
+
 				}
 			}
 		}
 	}
 
-	return quotaReq
+	return quotaReq, nil
 }
 
 func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*v1.MatchArgument, bool) {
@@ -159,22 +154,19 @@ func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*v
 	}
 
 	if err := engine.SyncGetResources(getRuleReq); err != nil {
-		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule fail : %+v",
-			req.GetNamespace(), req.GetService(), err)
+		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule fail : %+v", req.GetNamespace(), req.GetService(), err)
 		return nil, false
 	}
 
 	svcRule := getRuleReq.RateLimitRule
 	if svcRule == nil || svcRule.GetValue() == nil {
-		grpclog.Warningf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule is nil",
-			req.GetNamespace(), req.GetService())
+		grpclog.Warningf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule is nil", req.GetNamespace(), req.GetService())
 		return nil, false
 	}
 
 	rules, ok := svcRule.GetValue().(*v1.RateLimit)
 	if !ok {
-		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule invalid",
-			req.GetNamespace(), req.GetService())
+		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule invalid", req.GetNamespace(), req.GetService())
 		return nil, false
 	}
 

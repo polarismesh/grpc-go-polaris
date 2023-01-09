@@ -21,22 +21,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/polarismesh/polaris-go"
+	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
+	"google.golang.org/grpc/serviceconfig"
+	"google.golang.org/grpc/status"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/polarismesh/polaris-go"
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
-	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
-	"google.golang.org/grpc/serviceconfig"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -46,13 +46,13 @@ var (
 			st, _ := status.FromError(recErr)
 			code := uint32(st.Code())
 			return api.RetFail, code
+		} else {
+			return api.RetSuccess, 0
 		}
-		return api.RetSuccess, 0
 	}
 )
 
 var (
-	// ErrorPolarisServiceRouteRuleEmpty error service route rule is empty
 	ErrorPolarisServiceRouteRuleEmpty = errors.New("service route rule is empty")
 )
 
@@ -155,7 +155,9 @@ func buildAddressKey(addr resolver.Address) string {
 }
 
 func (p *polarisNamingBalancer) createSubConnection(addr resolver.Address) {
+
 	key := buildAddressKey(addr)
+
 	p.rwMutex.Lock()
 	defer p.rwMutex.Unlock()
 	if _, ok := p.subConns[key]; ok {
@@ -382,7 +384,6 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 	request := &polaris.GetInstancesRequest{}
 	request.Namespace = getNamespace(pnp.options)
 	request.Service = pnp.balancer.target.URL.Host
-	request.SkipRouteFilter = !pnp.options.Route
 
 	if len(pnp.options.DstMetadata) > 0 {
 		request.Metadata = pnp.options.DstMetadata
@@ -428,6 +429,7 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 
 func (pnp *polarisNamingPicker) buildLoadBalanceRequest(info balancer.PickInfo,
 	destIns model.ServiceInstances) *polaris.ProcessLoadBalanceRequest {
+
 	lbReq := &polaris.ProcessLoadBalanceRequest{
 		ProcessLoadBalanceRequest: model.ProcessLoadBalanceRequest{
 			DstInstances: destIns,

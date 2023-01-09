@@ -20,13 +20,9 @@ package grpcpolaris
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
-	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
@@ -93,24 +89,15 @@ type RegisterContext struct {
 }
 
 // Serve start polaris server
-func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
-	go func() {
-		pSrv, err := Register(gSrv, lis, opts...)
-		if err != nil {
-			log.Fatalf("polaris register err: %v", err)
+func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
+	srv := &Server{gServer: gSrv}
+	go func(srv *Server) {
+		if _, err := register(srv, lis, opts...); err != nil {
+			grpclog.Fatalf("[Polaris][Naming] polaris register err: %v", err)
 		}
+	}(srv)
 
-		go func() {
-			c := make(chan os.Signal, 1)
-			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-			s := <-c
-			log.Printf("[Polaris][Naming] receive quit signal: %v", s)
-			signal.Stop(c)
-			pSrv.Stop()
-		}()
-	}()
-
-	return gSrv.Serve(lis)
+	return srv, gSrv.Serve(lis)
 }
 
 // Stop deregister and stop
@@ -132,9 +119,8 @@ func (s *Server) Stop() {
 	<-ctx.Done()
 }
 
-// Register server as polaris instances
-func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
-	srv := &Server{gServer: gSrv}
+// register server as polaris instances
+func register(srv *Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
 	for _, opt := range opts {
 		opt.apply(&srv.serverOptions)
 	}
@@ -142,7 +128,7 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 	svcInfos := buildServiceNames(srv.gServer, srv)
 
 	registerContext := &RegisterContext{}
-	if len(svcInfos) == 0 {
+	if len(svcInfos) <= 0 {
 		srv.registerContext = registerContext
 		return srv, nil
 	}

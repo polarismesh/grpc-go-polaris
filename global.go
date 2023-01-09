@@ -52,8 +52,8 @@ var (
 )
 
 var (
-	polarisCallerServiceKey   = "polaris.request.caller.service"
-	polarisCallerNamespaceKey = "polaris.request.caller.namespace"
+	polarisCallerServiceKey   = "polaris.caller.service"
+	polarisCallerNamespaceKey = "polaris.caller.namespace"
 )
 
 var (
