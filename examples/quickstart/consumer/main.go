@@ -20,15 +20,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"net/http"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 	"github.com/polarismesh/polaris-go/api"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"log"
+	"net/http"
 )
 
 const (
@@ -39,15 +37,10 @@ func main() {
 	// grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cfg := api.NewConfiguration()
-	cfg.GetGlobal().GetServerConnector().SetAddresses([]string{
-		"127.0.0.1:8081",
-	})
-	targetAddress, err := polaris.BuildTarget("HelloWorld",
-		polaris.WithClientNamespace("Test"),
-		polaris.WithConfig(cfg))
 
-	conn, err := grpc.DialContext(ctx, targetAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := polaris.DialContext(ctx, "polaris://QuickStartEchoServerGRPC",
+		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,6 +61,9 @@ func main() {
 		if len(values) > 0 {
 			value = values[0]
 		}
+
+		ctx := polaris.SetLbPolicy(ctx, api.LBPolicyRingHash)
+		ctx = polaris.SetLbHashKey(ctx, r.Header.Get("uid"))
 		resp, err := echoClient.Echo(ctx, &pb.EchoRequest{Value: value})
 		log.Printf("send message, resp (%v), err(%v)", resp, err)
 		if nil != err {

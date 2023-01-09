@@ -31,32 +31,39 @@ import (
 )
 
 const (
-	listenPort = 16010
+	listenPort = 0
 )
 
 // EchoQuickStartService gRPC echo service struct
-type EchoQuickStartService struct{}
+type EchoQuickStartService struct {
+	actualPort int
+}
 
 // Echo gRPC testing method
 func (h *EchoQuickStartService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
-	return &pb.EchoResponse{Value: "echo: " + req.Value}, nil
+	return &pb.EchoResponse{Value: fmt.Sprintf("echo: %s, port: %d", req.Value, h.actualPort)}, nil
 }
 
 func main() {
 	srv := grpc.NewServer()
-	pb.RegisterEchoServerServer(srv, &EchoQuickStartService{})
 	address := fmt.Sprintf("0.0.0.0:%d", listenPort)
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
+	pb.RegisterEchoServerServer(srv, &EchoQuickStartService{
+		actualPort: listen.Addr().(*net.TCPAddr).Port,
+	})
+
 	// 启动服务
-	err = polaris.Serve(srv, listen,
+	pSrv, err := polaris.Serve(srv, listen,
 		polaris.WithServiceName("QuickStartEchoServerGRPC"),
-		polaris.WithDelayRegisterEnable(&polaris.WaitDelayStrategy{WaitTime: (10 * time.Second)}),
+		polaris.WithServerHost("127.0.0.1"),
+		polaris.WithDelayRegisterEnable(&polaris.WaitDelayStrategy{WaitTime: 10 * time.Second}),
 		polaris.WithGracefulStopEnable(10*time.Second),
 	)
 	if nil != err {
 		log.Printf("listen err: %v", err)
 	}
+	defer pSrv.Stop()
 }

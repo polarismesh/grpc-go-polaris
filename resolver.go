@@ -22,17 +22,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/grpc/attributes"
 	"sync"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/resolver"
-	"google.golang.org/grpc/serviceconfig"
-	"google.golang.org/protobuf/proto"
 )
 
 type resolverBuilder struct {
@@ -130,27 +127,24 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, err
 		return nil, nil, err
 	}
 	consumerAPI := api.NewConsumerAPIByContext(sdkCtx)
-	instancesRequest := &api.GetInstancesRequest{}
-	instancesRequest.Namespace = getNamespace(pr.options)
-	instancesRequest.Service = pr.target.URL.Host
-	if len(pr.options.DstMetadata) > 0 {
-		instancesRequest.Metadata = pr.options.DstMetadata
+	instancesRequest := &api.GetInstancesRequest{
+		GetInstancesRequest: model.GetInstancesRequest{
+			Service:         pr.target.URL.Host,
+			Namespace:       getNamespace(pr.options),
+			SkipRouteFilter: true,
+		},
 	}
-	sourceService := buildSourceInfo(pr.options)
-	if sourceService != nil {
-		// 如果在Conf中配置了SourceService，则优先使用配置
-		instancesRequest.SourceService = sourceService
-	}
-	instancesRequest.SkipRouteFilter = true
+
 	resp, err := consumerAPI.GetInstances(instancesRequest)
 	if nil != err {
 		return nil, consumerAPI, err
 	}
-	state := &resolver.State{}
+	state := &resolver.State{
+		Attributes: attributes.New(keyDialOptions, pr.options),
+	}
 	for _, instance := range resp.Instances {
 		state.Addresses = append(state.Addresses, resolver.Address{
-			Addr:       fmt.Sprintf("%s:%d", instance.GetHost(), instance.GetPort()),
-			Attributes: attributes.New(keyDialOptions, pr.options),
+			Addr: fmt.Sprintf("%s:%d", instance.GetHost(), instance.GetPort()),
 		})
 	}
 	return state, consumerAPI, nil
@@ -171,11 +165,15 @@ func (pr *polarisNamingResolver) doWatch(
 }
 
 func (pr *polarisNamingResolver) watcher() {
-	defer pr.wg.Done()
-	var consumerAPI api.ConsumerAPI
-	var eventChan <-chan model.SubScribeEvent
+	var (
+		consumerAPI api.ConsumerAPI
+		eventChan   <-chan model.SubScribeEvent
+	)
 	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	defer func() {
+		ticker.Stop()
+		pr.wg.Done()
+	}()
 	for {
 		select {
 		case <-pr.ctx.Done():
@@ -184,29 +182,22 @@ func (pr *polarisNamingResolver) watcher() {
 		case <-eventChan:
 		case <-ticker.C:
 		}
-		var state *resolver.State
-		var err error
+		var (
+			state *resolver.State
+			err   error
+		)
 		state, consumerAPI, err = pr.lookup()
 		if err != nil {
 			pr.cc.ReportError(err)
-		} else {
-			pr.balanceOnce.Do(func() {
-				state.ServiceConfig = &serviceconfig.ParseResult{
-					//lint:ignore SA1019 we want to keep the original config here
-					Config: &grpc.ServiceConfig{
-						LB: proto.String(scheme),
-					},
-				}
-			})
-			err = pr.cc.UpdateState(*state)
-			if nil != err {
-				grpclog.Errorf("fail to do update service %s: %v", pr.target.URL.Host, err)
-			}
-			var svcKey model.ServiceKey
-			svcKey, eventChan, err = pr.doWatch(consumerAPI)
-			if nil != err {
-				grpclog.Errorf("fail to do watch for service %s: %v", svcKey, err)
-			}
+			continue
+		}
+		if err = pr.cc.UpdateState(*state); nil != err {
+			grpclog.Errorf("fail to do update service %s: %v", pr.target.URL.Host, err)
+		}
+		var svcKey model.ServiceKey
+		svcKey, eventChan, err = pr.doWatch(consumerAPI)
+		if nil != err {
+			grpclog.Errorf("fail to do watch for service %s: %v", svcKey, err)
 		}
 	}
 }

@@ -19,7 +19,14 @@ package grpcpolaris
 
 import (
 	"context"
+	"fmt"
+	"github.com/polarismesh/polaris-go/pkg/flow/data"
+	"github.com/polarismesh/polaris-go/pkg/model"
+	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"strings"
+	"time"
 
 	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc"
@@ -56,30 +63,121 @@ func (p *RateLimitInterceptor) WithServiceName(svcName string) *RateLimitInterce
 // UnaryInterceptor returns a unary interceptor for rate limiting.
 func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+
+	quotaReq, err := p.buildQuotaRequest(ctx, req, info)
+	if err != nil {
+		return handler(ctx, req)
+	}
+
+	future, err := p.limitAPI.GetQuota(quotaReq)
+	if nil != err {
+		grpclog.Errorf("[Polaris][RateLimit] fail to get quota %#v: %v", quotaReq, err)
+		return handler(ctx, req)
+	}
+
+	if rsp := future.Get(); rsp.Code == api.QuotaResultLimited {
+		return nil, status.Error(codes.ResourceExhausted, rsp.Info)
+	}
+	return handler(ctx, req)
+}
+
+func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interface{},
+	info *grpc.UnaryServerInfo) (api.QuotaRequest, error) {
+
 	fullMethodName := info.FullMethod
 	tokens := strings.Split(fullMethodName, "/")
 	if len(tokens) != 3 {
-		return handler(ctx, req)
+		return nil, nil
 	}
 	namespace := DefaultNamespace
 	if len(p.namespace) > 0 {
 		namespace = p.namespace
 	}
-	serviceName := tokens[1]
-	if len(p.svcName) > 0 {
-		serviceName = p.svcName
-	}
+
 	quotaReq := api.NewQuotaRequest()
 	quotaReq.SetNamespace(namespace)
-	quotaReq.SetService(serviceName)
-	future, err := p.limitAPI.GetQuota(quotaReq)
-	if nil != err {
-		grpclog.Errorf("fail to do ratelimit %s: %v", fullMethodName, err)
-		return handler(ctx, req)
+	quotaReq.SetService(extractBareServiceName(fullMethodName))
+	quotaReq.SetMethod(extractBareMethodName(fullMethodName))
+
+	if len(p.svcName) > 0 {
+		quotaReq.SetService(p.svcName)
+		quotaReq.SetMethod(fullMethodName)
 	}
-	rsp := future.Get()
-	if rsp.Code == api.QuotaResultLimited {
-		return nil, status.Error(codes.ResourceExhausted, rsp.Info)
+
+	matchs, ok := p.fetchArguments(req.(*model.QuotaRequestImpl))
+	if !ok {
+		return quotaReq, nil
 	}
-	return handler(ctx, req)
+	header, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		header = metadata.MD{}
+	}
+
+	for i := range matchs {
+		item := matchs[i]
+		switch item.GetType() {
+		case v1.MatchArgument_HEADER:
+			values := header.Get(item.GetKey())
+			if len(values) > 0 {
+				quotaReq.AddArgument(model.BuildHeaderArgument(item.GetKey(), fmt.Sprintf("%+v", values[0])))
+			}
+		case v1.MatchArgument_CALLER_IP:
+			if pr, ok := peer.FromContext(ctx); ok && pr.Addr != nil {
+				address := pr.Addr.String()
+				addrSlice := strings.Split(address, ":")
+				if len(addrSlice) == 2 {
+					clientIP := addrSlice[0]
+					quotaReq.AddArgument(model.BuildCallerIPArgument(clientIP))
+
+				}
+			}
+		}
+	}
+
+	return quotaReq, nil
+}
+
+func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*v1.MatchArgument, bool) {
+	engine := p.limitAPI.SDKContext().GetEngine()
+
+	getRuleReq := &data.CommonRateLimitRequest{
+		DstService: model.ServiceKey{
+			Namespace: req.GetNamespace(),
+			Service:   req.GetService(),
+		},
+		Trigger: model.NotifyTrigger{
+			EnableDstRateLimit: true,
+		},
+		ControlParam: model.ControlParam{
+			Timeout: time.Millisecond * 500,
+		},
+	}
+
+	if err := engine.SyncGetResources(getRuleReq); err != nil {
+		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule fail : %+v", req.GetNamespace(), req.GetService(), err)
+		return nil, false
+	}
+
+	svcRule := getRuleReq.RateLimitRule
+	if svcRule == nil || svcRule.GetValue() == nil {
+		grpclog.Warningf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule is nil", req.GetNamespace(), req.GetService())
+		return nil, false
+	}
+
+	rules, ok := svcRule.GetValue().(*v1.RateLimit)
+	if !ok {
+		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule invalid", req.GetNamespace(), req.GetService())
+		return nil, false
+	}
+
+	ret := make([]*v1.MatchArgument, 0, 4)
+	for i := range rules.GetRules() {
+		rule := rules.GetRules()[i]
+		if len(rule.GetArguments()) == 0 {
+			continue
+		}
+
+		ret = append(ret, rule.Arguments...)
+	}
+	return ret, true
 }
