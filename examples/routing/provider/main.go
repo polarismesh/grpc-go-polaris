@@ -70,6 +70,7 @@ func main() {
 	); nil != err {
 		log.Printf("listen err: %v", err)
 	}
+	defer pSrv.Stop()
 }
 
 func convertMetadata() map[string]string {

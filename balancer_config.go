@@ -23,7 +23,11 @@ import (
 
 // LBConfig is the LB config for the polaris policy.
 type LBConfig struct {
-	serviceconfig.LoadBalancingConfig `json:"-"`
-	HashKey                           string `json:"hash_key"`
-	LbPolicy                          string `json:"lb_policy"`
+	serviceconfig.LoadBalancingConfig
+	HashKey  string `json:"hash_key"`
+	LbPolicy string `json:"lb_policy"`
+}
+
+func (l *LBConfig) isLoadBalancingConfig() bool {
+	return true
 }

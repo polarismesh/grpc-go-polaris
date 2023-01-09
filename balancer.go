@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/polarismesh/polaris-go"
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
 	"github.com/polarismesh/specification/source/go/api/v1/traffic_manage"
@@ -36,8 +35,6 @@ import (
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
-	"google.golang.org/grpc/serviceconfig"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -47,13 +44,13 @@ var (
 			st, _ := status.FromError(recErr)
 			code := uint32(st.Code())
 			return api.RetFail, code
+		} else {
+			return api.RetSuccess, 0
 		}
-		return api.RetSuccess, 0
 	}
 )
 
 var (
-	// ErrorPolarisServiceRouteRuleEmpty error service route rule is empty
 	ErrorPolarisServiceRouteRuleEmpty = errors.New("service route rule is empty")
 )
 
@@ -165,7 +162,9 @@ func buildAddressKey(addr resolver.Address) string {
 }
 
 func (p *polarisNamingBalancer) createSubConnection(addr resolver.Address) {
+
 	key := buildAddressKey(addr)
+
 	p.rwMutex.Lock()
 	defer p.rwMutex.Unlock()
 	if _, ok := p.subConns[key]; ok {
@@ -463,6 +462,7 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 
 func (pnp *polarisNamingPicker) buildLoadBalanceRequest(info balancer.PickInfo,
 	destIns model.ServiceInstances) *polaris.ProcessLoadBalanceRequest {
+
 	lbReq := &polaris.ProcessLoadBalanceRequest{
 		ProcessLoadBalanceRequest: model.ProcessLoadBalanceRequest{
 			DstInstances: destIns,

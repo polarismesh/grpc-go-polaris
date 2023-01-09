@@ -30,7 +30,6 @@ import (
 
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
-	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/resolver"
 )

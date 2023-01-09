@@ -20,15 +20,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"net/http"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
-
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
+	"github.com/polarismesh/polaris-go/api"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"log"
+	"net/http"
 )
 
 const (
@@ -66,12 +64,8 @@ func main() {
 			value = values[0]
 		}
 
-		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{})
-		ctx = metadata.AppendToOutgoingContext(ctx, "uid", r.Header.Get("uid"))
-
-		// 请求时设置本次请求的负载均衡算法
-		// ctx = polaris.RequestScopeLbPolicy(ctx, api.LBPolicyRingHash)
-		// ctx = polaris.RequestScopeLbHashKey(ctx, r.Header.Get("uid"))
+		ctx := polaris.SetLbPolicy(ctx, api.LBPolicyRingHash)
+		ctx = polaris.SetLbHashKey(ctx, r.Header.Get("uid"))
 		resp, err := echoClient.Echo(ctx, &pb.EchoRequest{Value: value})
 		log.Printf("send message, resp (%v), err(%v)", resp, err)
 		if nil != err {

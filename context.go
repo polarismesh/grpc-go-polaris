@@ -19,7 +19,6 @@ package grpcpolaris
 
 import (
 	"context"
-
 	"google.golang.org/grpc/metadata"
 )
 
@@ -28,8 +27,8 @@ const (
 	polarisRequestLbPolicy  = "polaris.balancer.request.lbPolicy"
 )
 
-// RequestScopeLbHashKey set request scope LbHashKey
-func RequestScopeLbHashKey(ctx context.Context, key string) context.Context {
+// SetLbHashKey set request scope LbHashKey
+func SetLbHashKey(ctx context.Context, key string) context.Context {
 	_, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{
@@ -42,8 +41,8 @@ func RequestScopeLbHashKey(ctx context.Context, key string) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, polarisRequestLbHashKey, key)
 }
 
-// RequestScopeLbPolicy set request scope LbPolicy
-func RequestScopeLbPolicy(ctx context.Context, policy string) context.Context {
+// SetLbPolicy set request scope LbPolicy
+func SetLbPolicy(ctx context.Context, policy string) context.Context {
 	_, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{
