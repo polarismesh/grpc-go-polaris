@@ -80,18 +80,12 @@ func (s *serverTestingSuite) TestRegister(c *check.C) {
 	if err != nil {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
-	pSrv, err := polaris.Register(srv, listen,
+	pSrv, err := polaris.Serve(srv, listen,
 		polaris.WithServiceName(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
 	if nil != err {
 		log.Fatal(err)
 	}
-	defer pSrv.Deregister()
-	go func() {
-		err = srv.Serve(listen)
-		if nil != err {
-			c.Fatal(err)
-		}
-	}()
+	defer pSrv.Stop()
 	time.Sleep(10 * time.Second)
 	hbCount := s.mockServer.HeartbeatCount(address)
 	c.Check(hbCount > 0, check.Equals, true)
