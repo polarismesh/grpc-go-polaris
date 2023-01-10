@@ -20,18 +20,18 @@ package grpcpolaris
 import (
 	"context"
 	"fmt"
-	"github.com/polarismesh/polaris-go/pkg/flow/data"
-	"github.com/polarismesh/polaris-go/pkg/model"
-	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 	"strings"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
+	"github.com/polarismesh/polaris-go/pkg/flow/data"
+	"github.com/polarismesh/polaris-go/pkg/model"
+	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -64,8 +64,8 @@ func (p *RateLimitInterceptor) WithServiceName(svcName string) *RateLimitInterce
 func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 
-	quotaReq, err := p.buildQuotaRequest(ctx, req, info)
-	if err != nil {
+	quotaReq := p.buildQuotaRequest(ctx, req, info)
+	if quotaReq == nil {
 		return handler(ctx, req)
 	}
 
@@ -82,12 +82,12 @@ func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interfa
 }
 
 func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interface{},
-	info *grpc.UnaryServerInfo) (api.QuotaRequest, error) {
+	info *grpc.UnaryServerInfo) api.QuotaRequest {
 
 	fullMethodName := info.FullMethod
 	tokens := strings.Split(fullMethodName, "/")
 	if len(tokens) != 3 {
-		return nil, nil
+		return nil
 	}
 	namespace := DefaultNamespace
 	if len(p.namespace) > 0 {
@@ -106,7 +106,7 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 
 	matchs, ok := p.fetchArguments(req.(*model.QuotaRequestImpl))
 	if !ok {
-		return quotaReq, nil
+		return quotaReq
 	}
 	header, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -134,7 +134,7 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 		}
 	}
 
-	return quotaReq, nil
+	return quotaReq
 }
 
 func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*v1.MatchArgument, bool) {

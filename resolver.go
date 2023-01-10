@@ -22,12 +22,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/grpc/attributes"
 	"sync"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
+	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/resolver"
 )
@@ -96,11 +96,10 @@ type polarisNamingResolver struct {
 	cancel context.CancelFunc
 	cc     resolver.ClientConn
 	// rn channel is used by ResolveNow() to force an immediate resolution of the target.
-	rn          chan struct{}
-	wg          sync.WaitGroup
-	options     *dialOptions
-	target      resolver.Target
-	balanceOnce sync.Once
+	rn      chan struct{}
+	wg      sync.WaitGroup
+	options *dialOptions
+	target  resolver.Target
 }
 
 // ResolveNow The method is called by the gRPC framework to resolve the target name
