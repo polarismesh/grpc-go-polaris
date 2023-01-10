@@ -66,11 +66,13 @@ func (s *clientTestingSuite) TestClientCall(c *check.C) {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	log.Printf("success to listen on %s\n", listen.Addr())
-	pSrv, err := polaris.Serve(srv, listen,
+	pSrv, errCh := polaris.Serve(srv, listen,
 		polaris.WithServiceName(serverSvc), polaris.WithServerNamespace(serverNamespace), polaris.WithTTL(2))
-	if nil != err {
-		log.Fatal(err)
-	}
+	go func() {
+		if nil != <-errCh {
+			log.Fatal(err)
+		}
+	}()
 	defer pSrv.Stop()
 
 	time.Sleep(1 * time.Second)
