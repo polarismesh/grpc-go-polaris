@@ -70,14 +70,16 @@ func (s *serverOptions) setDefault() {
 	}
 }
 
-// DelayStrategy delay register/deregister strategy. e.g. wait some time
+// DelayStrategy delay register strategy. e.g. wait some time
 type DelayStrategy interface {
+	// Allow delay strategy is allowed to continue to exec
 	Allow() bool
 }
 
 // NoopDelayStrategy noop delay strategy
 type NoopDelayStrategy struct{}
 
+// Allow delay strategy is allowed to continue to exec
 func (d *NoopDelayStrategy) Allow() bool {
 	return true
 }
@@ -87,6 +89,7 @@ type WaitDelayStrategy struct {
 	WaitTime time.Duration
 }
 
+// Allow delay strategy is allowed to continue to exec
 func (d *WaitDelayStrategy) Allow() bool {
 	timer := time.NewTimer(d.WaitTime)
 	defer timer.Stop()
