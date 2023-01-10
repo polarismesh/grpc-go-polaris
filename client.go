@@ -83,7 +83,6 @@ func BuildTarget(target string, opts ...DialOption) (string, error) {
 func injectCallerInfo(options *dialOptions) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn,
 		invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-
 		ctx = context.WithValue(ctx, polarisCallerServiceKey, options.SrcService)
 		ctx = context.WithValue(ctx, polarisCallerNamespaceKey, options.Namespace)
 

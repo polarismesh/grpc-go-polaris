@@ -99,8 +99,8 @@ func WithHeaderPrefix(headerPrefix []string) DialOption {
 }
 
 // WithPolarisConfig set polaris configuration
-func WithPolarisConfig(config config.Configuration) DialOption {
+func WithPolarisConfig(polarisCfg config.Configuration) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
-		options.Config = config
+		options.Config = polarisCfg
 	})
 }

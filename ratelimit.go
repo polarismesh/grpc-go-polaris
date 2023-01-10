@@ -128,7 +128,6 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 				if len(addrSlice) == 2 {
 					clientIP := addrSlice[0]
 					quotaReq.AddArgument(model.BuildCallerIPArgument(clientIP))
-
 				}
 			}
 		}
@@ -154,19 +153,22 @@ func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*v
 	}
 
 	if err := engine.SyncGetResources(getRuleReq); err != nil {
-		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule fail : %+v", req.GetNamespace(), req.GetService(), err)
+		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule fail : %+v",
+			req.GetNamespace(), req.GetService(), err)
 		return nil, false
 	}
 
 	svcRule := getRuleReq.RateLimitRule
 	if svcRule == nil || svcRule.GetValue() == nil {
-		grpclog.Warningf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule is nil", req.GetNamespace(), req.GetService())
+		grpclog.Warningf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule is nil",
+			req.GetNamespace(), req.GetService())
 		return nil, false
 	}
 
 	rules, ok := svcRule.GetValue().(*v1.RateLimit)
 	if !ok {
-		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule invalid", req.GetNamespace(), req.GetService())
+		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule invalid",
+			req.GetNamespace(), req.GetService())
 		return nil, false
 	}
 
