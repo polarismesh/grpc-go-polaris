@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/polarismesh/polaris-go"
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
 	"github.com/polarismesh/specification/source/go/api/v1/traffic_manage"
@@ -35,6 +36,8 @@ import (
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/serviceconfig"
+	"google.golang.org/grpc/status"
 )
 
 var (
