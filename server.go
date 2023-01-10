@@ -89,15 +89,19 @@ type RegisterContext struct {
 }
 
 // Serve start polaris server
-func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
+func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, <-chan error) {
 	srv := &Server{gServer: gSrv}
-	go func(srv *Server) {
-		if _, err := register(srv, lis, opts...); err != nil {
-			grpclog.Fatalf("[Polaris][Naming] polaris register err: %v", err)
-		}
-	}(srv)
+	if _, err := register(srv, lis, opts...); err != nil {
+		grpclog.Fatalf("[Polaris][Naming] polaris register err: %v", err)
+	}
 
-	return srv, gSrv.Serve(lis)
+	errCh := make(chan error)
+
+	go func() {
+		errCh <- gSrv.Serve(lis)
+	}()
+
+	return srv, errCh
 }
 
 // Stop deregister and stop
