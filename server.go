@@ -135,7 +135,7 @@ func register(srv *Server, lis net.Listener, opts ...ServerOption) (*Server, err
 	svcInfos := buildServiceNames(srv.gServer, srv)
 
 	registerContext := &RegisterContext{}
-	if len(svcInfos) <= 0 {
+	if len(svcInfos) == 0 {
 		srv.registerContext = registerContext
 		return srv, nil
 	}
