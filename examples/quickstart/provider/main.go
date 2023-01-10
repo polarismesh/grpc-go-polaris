@@ -56,13 +56,13 @@ func main() {
 	})
 
 	// 启动服务
-	pSrv, err := polaris.Serve(srv, listen,
+	pSrv, errCh := polaris.Serve(srv, listen,
 		polaris.WithServiceName("QuickStartEchoServerGRPC"),
 		polaris.WithServerHost("127.0.0.1"),
 		polaris.WithDelayRegisterEnable(&polaris.WaitDelayStrategy{WaitTime: 10 * time.Second}),
 		polaris.WithGracefulStopEnable(10*time.Second),
 	)
-	if nil != err {
+	if nil != <-errCh {
 		log.Printf("listen err: %v", err)
 	}
 	defer pSrv.Stop()
