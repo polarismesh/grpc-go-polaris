@@ -52,8 +52,8 @@ var (
 )
 
 var (
-	polarisCallerServiceKey   = "polaris.caller.service"
-	polarisCallerNamespaceKey = "polaris.caller.namespace"
+	polarisCallerServiceKey   = struct{}{}
+	polarisCallerNamespaceKey = struct{}{}
 )
 
 var (
