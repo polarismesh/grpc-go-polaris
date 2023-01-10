@@ -52,6 +52,7 @@ var (
 )
 
 var (
+	// ErrorPolarisServiceRouteRuleEmpty error service route rule is empty
 	ErrorPolarisServiceRouteRuleEmpty = errors.New("service route rule is empty")
 )
 
