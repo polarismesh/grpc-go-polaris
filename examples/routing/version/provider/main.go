@@ -62,10 +62,10 @@ func main() {
 	srv := grpc.NewServer()
 	pb.RegisterEchoServerServer(srv, &EchoVersionService{version: version})
 	// 启动服务
-	pSrv, err := polaris.Serve(srv, listen,
+	pSrv, errCh := polaris.Serve(srv, listen,
 		polaris.WithServiceName("VersionEchoServerGRPC"),
 		polaris.WithServerVersion(version))
-	if nil != err {
+	if nil != <-errCh {
 		log.Printf("listen err: %v", err)
 	}
 	defer pSrv.Stop()
