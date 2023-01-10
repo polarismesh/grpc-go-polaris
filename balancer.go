@@ -46,9 +46,8 @@ var (
 			st, _ := status.FromError(recErr)
 			code := uint32(st.Code())
 			return api.RetFail, code
-		} else {
-			return api.RetSuccess, 0
 		}
+		return api.RetSuccess, 0
 	}
 )
 
@@ -155,9 +154,7 @@ func buildAddressKey(addr resolver.Address) string {
 }
 
 func (p *polarisNamingBalancer) createSubConnection(addr resolver.Address) {
-
 	key := buildAddressKey(addr)
-
 	p.rwMutex.Lock()
 	defer p.rwMutex.Unlock()
 	if _, ok := p.subConns[key]; ok {
@@ -429,7 +426,6 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 
 func (pnp *polarisNamingPicker) buildLoadBalanceRequest(info balancer.PickInfo,
 	destIns model.ServiceInstances) *polaris.ProcessLoadBalanceRequest {
-
 	lbReq := &polaris.ProcessLoadBalanceRequest{
 		ProcessLoadBalanceRequest: model.ProcessLoadBalanceRequest{
 			DstInstances: destIns,
