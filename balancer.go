@@ -21,22 +21,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/polarismesh/polaris-go"
-	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
-	"google.golang.org/grpc/serviceconfig"
-	"google.golang.org/grpc/status"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/polarismesh/polaris-go"
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
+	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/serviceconfig"
+	"google.golang.org/grpc/status"
 )
 
 var (

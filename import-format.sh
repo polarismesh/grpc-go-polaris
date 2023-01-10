@@ -14,8 +14,10 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
+
 # 格式化 go.mod
-go mod tidy
+go mod tidy -compat=1.17
+
 
 # 处理 go imports 的格式化
 rm -rf style_tool
@@ -35,6 +37,3 @@ find . -name "*.go" -type f | grep -v .pb.go|grep -v test/tools/tools.go | grep 
 
 # 处理 go 代码格式化
 go fmt ./...
-
-# 检查 golangci-lint
-docker run -t --rm -v $(pwd):/app -w /app golangci/golangci-lint:v1.50.1 golangci-lint run -v
