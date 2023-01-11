@@ -20,10 +20,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc"
 	"log"
 	"net"
-
-	"google.golang.org/grpc"
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
@@ -54,10 +53,9 @@ func main() {
 	srv := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryInterceptor))
 	pb.RegisterEchoServerServer(srv, &EchoRateLimitService{})
 	// 启动服务
-	pSrv, errCh := polaris.Serve(srv, listen,
-		polaris.WithServiceName("RateLimitEchoServerGRPC"))
-	if nil != <-errCh {
+	if err := polaris.Serve(srv, listen,
+		polaris.WithServiceName("RateLimitEchoServerGRPC"),
+	); nil != err {
 		log.Printf("listen err: %v", err)
 	}
-	defer pSrv.Stop()
 }
