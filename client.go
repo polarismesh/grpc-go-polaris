@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/grpc/metadata"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -83,8 +84,15 @@ func BuildTarget(target string, opts ...DialOption) (string, error) {
 func injectCallerInfo(options *dialOptions) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn,
 		invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = context.WithValue(ctx, polarisCallerServiceKey, options.SrcService)
-		ctx = context.WithValue(ctx, polarisCallerNamespaceKey, options.Namespace)
+
+		if _, ok := metadata.FromOutgoingContext(ctx); !ok {
+			ctx = metadata.NewOutgoingContext(context.Background(), metadata.MD{})
+		}
+
+		if len(options.SrcService) > 0 {
+			ctx = metadata.AppendToOutgoingContext(ctx, polarisCallerServiceKey, options.SrcService)
+			ctx = metadata.AppendToOutgoingContext(ctx, polarisCallerNamespaceKey, options.Namespace)
+		}
 
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}

@@ -104,7 +104,7 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 		quotaReq.SetMethod(fullMethodName)
 	}
 
-	matchs, ok := p.fetchArguments(req.(*model.QuotaRequestImpl))
+	matchs, ok := p.fetchArguments(quotaReq.(*model.QuotaRequestImpl))
 	if !ok {
 		return quotaReq
 	}
@@ -116,6 +116,12 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 	for i := range matchs {
 		item := matchs[i]
 		switch item.GetType() {
+		case v1.MatchArgument_CALLER_SERVICE:
+			serviceValues := header.Get(polarisCallerServiceKey)
+			namespaceValues := header.Get(polarisCallerNamespaceKey)
+			if len(serviceValues) > 0 && len(namespaceValues) > 0 {
+				quotaReq.AddArgument(model.BuildCallerServiceArgument(namespaceValues[0], serviceValues[0]))
+			}
 		case v1.MatchArgument_HEADER:
 			values := header.Get(item.GetKey())
 			if len(values) > 0 {

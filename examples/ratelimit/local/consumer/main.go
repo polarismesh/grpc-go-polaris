@@ -20,15 +20,15 @@ package main
 import (
 	"context"
 	"fmt"
+	polaris "github.com/polarismesh/grpc-go-polaris"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	_ "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
@@ -42,7 +42,10 @@ const (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, "polaris://RateLimitEchoServerGRPC", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := polaris.DialContext(ctx, "polaris://RateLimitEchoServerGRPC",
+		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		polaris.WithSrcService("RateLimitEchoConsumerGRPC"),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
