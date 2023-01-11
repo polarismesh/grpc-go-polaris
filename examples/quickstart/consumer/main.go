@@ -20,10 +20,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/metadata"
 	"log"
 	"net/http"
 
-	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -66,8 +66,8 @@ func main() {
 			value = values[0]
 		}
 
-		ctx := polaris.SetLbPolicy(ctx, api.LBPolicyRingHash)
-		ctx = polaris.SetLbHashKey(ctx, r.Header.Get("uid"))
+		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{})
+		ctx = metadata.AppendToOutgoingContext(ctx, "uid", r.Header.Get("uid"))
 		resp, err := echoClient.Echo(ctx, &pb.EchoRequest{Value: value})
 		log.Printf("send message, resp (%v), err(%v)", resp, err)
 		if nil != err {

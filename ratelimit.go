@@ -104,7 +104,7 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 		quotaReq.SetMethod(fullMethodName)
 	}
 
-	matchs, ok := p.fetchArguments(req.(*model.QuotaRequestImpl))
+	matchs, ok := p.fetchArguments(quotaReq.(*model.QuotaRequestImpl))
 	if !ok {
 		return quotaReq
 	}
