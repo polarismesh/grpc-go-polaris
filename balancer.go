@@ -382,6 +382,7 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 	request := &polaris.GetInstancesRequest{}
 	request.Namespace = getNamespace(pnp.options)
 	request.Service = pnp.balancer.target.URL.Host
+	request.SkipRouteFilter = !pnp.options.Route
 
 	if len(pnp.options.DstMetadata) > 0 {
 		request.Metadata = pnp.options.DstMetadata
