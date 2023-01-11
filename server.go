@@ -20,9 +20,13 @@ package grpcpolaris
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
@@ -126,8 +130,9 @@ func (s *Server) Stop() {
 	<-ctx.Done()
 }
 
-// register server as polaris instances
-func register(srv *Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
+// Register server as polaris instances
+func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
+	srv := &Server{gServer: gSrv}
 	for _, opt := range opts {
 		opt.apply(&srv.serverOptions)
 	}

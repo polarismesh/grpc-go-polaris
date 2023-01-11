@@ -54,11 +54,9 @@ func main() {
 	srv := grpc.NewServer()
 	pb.RegisterEchoServerServer(srv, &EchoCircuitBreakerService{address: listenAddr})
 	// 执行北极星的注册命令
-	pSrv, errCh := polaris.Serve(srv, listen,
+	if err := polaris.Serve(srv, listen,
 		polaris.WithServiceName("CircuitBreakerEchoServerGRPC"),
-	)
-	if nil != <-errCh {
+	); nil != err {
 		log.Printf("listen err: %v", err)
 	}
-	defer pSrv.Stop()
 }
