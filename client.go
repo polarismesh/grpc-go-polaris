@@ -22,10 +22,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/grpc/metadata"
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 const (

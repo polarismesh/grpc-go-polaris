@@ -20,9 +20,6 @@ package main
 import (
 	"context"
 	"fmt"
-	polaris "github.com/polarismesh/grpc-go-polaris"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"net"
 	"net/http"
@@ -30,7 +27,11 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	_ "github.com/polarismesh/grpc-go-polaris"
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
