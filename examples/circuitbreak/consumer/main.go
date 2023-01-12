@@ -70,7 +70,7 @@ func main() {
 	}
 }
 
-// 设置用户自定义的请求结果状态解析
+// initReportInfoAnalyzer 设置用户自定义的请求结果状态解析
 func initReportInfoAnalyzer() {
 	polaris.SetReportInfoAnalyzer(func(info balancer.DoneInfo) (model.RetStatus, uint32) {
 		return model.RetSuccess, 0
