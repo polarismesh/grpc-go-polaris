@@ -54,9 +54,9 @@ func main() {
 	srv := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryInterceptor))
 	pb.RegisterEchoServerServer(srv, &EchoRateLimitService{})
 	// 启动服务
-	err = polaris.Serve(srv, listen,
-		polaris.WithServiceName("RateLimitEchoServerGRPC"))
-	if nil != err {
-		log.Printf("serve err: %v", err)
+	if err := polaris.Serve(srv, listen,
+		polaris.WithServiceName("RateLimitEchoServerGRPC"),
+	); nil != err {
+		log.Printf("listen err: %v", err)
 	}
 }

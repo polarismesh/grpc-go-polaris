@@ -77,6 +77,7 @@ func (s *clientTestingSuite) TestClientCall(c *check.C) {
 			c.Fatal(err)
 		}
 	}()
+
 	time.Sleep(1 * time.Second)
 
 	ctx, cancel := context.WithCancel(context.Background())

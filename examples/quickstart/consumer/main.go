@@ -25,10 +25,10 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
-	"github.com/polarismesh/polaris-go/api"
 )
 
 const (
@@ -39,15 +39,11 @@ func main() {
 	// grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cfg := api.NewConfiguration()
-	cfg.GetGlobal().GetServerConnector().SetAddresses([]string{
-		"127.0.0.1:8081",
-	})
-	targetAddress, err := polaris.BuildTarget("HelloWorld",
-		polaris.WithClientNamespace("Test"),
-		polaris.WithConfig(cfg))
 
-	conn, err := grpc.DialContext(ctx, targetAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := polaris.DialContext(ctx, "polaris://QuickStartEchoServerGRPC",
+		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		polaris.WithDisableRouter(),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,6 +64,13 @@ func main() {
 		if len(values) > 0 {
 			value = values[0]
 		}
+
+		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{})
+		ctx = metadata.AppendToOutgoingContext(ctx, "uid", r.Header.Get("uid"))
+
+		// 请求时设置本次请求的负载均衡算法
+		// ctx = polaris.RequestScopeLbPolicy(ctx, api.LBPolicyRingHash)
+		// ctx = polaris.RequestScopeLbHashKey(ctx, r.Header.Get("uid"))
 		resp, err := echoClient.Echo(ctx, &pb.EchoRequest{Value: value})
 		log.Printf("send message, resp (%v), err(%v)", resp, err)
 		if nil != err {

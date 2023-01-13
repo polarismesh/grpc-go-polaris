@@ -18,33 +18,64 @@
 package grpcpolaris
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/polarismesh/polaris-go"
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
+	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/serviceconfig"
 	"google.golang.org/grpc/status"
 )
 
-type balancerBuilder struct {
+var (
+	reportInfoAnalyzer ReportInfoAnalyzer = func(info balancer.DoneInfo) (model.RetStatus, uint32) {
+		recErr := info.Err
+		if nil != recErr {
+			st, _ := status.FromError(recErr)
+			code := uint32(st.Code())
+			return api.RetFail, code
+		}
+		return api.RetSuccess, 0
+	}
+)
+
+var (
+	// ErrorPolarisServiceRouteRuleEmpty error service route rule is empty
+	ErrorPolarisServiceRouteRuleEmpty = errors.New("service route rule is empty")
+)
+
+// SetReportInfoAnalyzer sets report info analyzer
+func SetReportInfoAnalyzer(analyzer ReportInfoAnalyzer) {
+	reportInfoAnalyzer = analyzer
 }
 
-// Build 创建一个Balancer
+type (
+	balancerBuilder struct {
+	}
+
+	// ReportInfoAnalyzer analyze balancer.DoneInfo to polaris report info
+	ReportInfoAnalyzer func(info balancer.DoneInfo) (model.RetStatus, uint32)
+)
+
+// Build creates polaris balancer.Balancer implement
 func (bb *balancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
-	grpclog.Infof("[POLARIS] start to build polaris balancer\n")
+	grpclog.Infof("[Polaris][Balancer] start to build polaris balancer")
 	return &polarisNamingBalancer{
 		cc:       cc,
 		target:   opts.Target,
-		subConns: make(map[resolver.Address]balancer.SubConn),
+		subConns: make(map[string]balancer.SubConn),
 		scStates: make(map[balancer.SubConn]connectivity.State),
 		csEvltr:  &balancer.ConnectivityStateEvaluator{},
 	}
@@ -55,6 +86,18 @@ func (bb *balancerBuilder) Name() string {
 	return scheme
 }
 
+// ParseConfig parses the JSON load balancer config provided into an
+// internal form or returns an error if the config is invalid.  For future
+// compatibility reasons, unknown fields in the config should be ignored.
+func (bb *balancerBuilder) ParseConfig(cfgStr json.RawMessage) (serviceconfig.LoadBalancingConfig, error) {
+	cfg := &LBConfig{}
+	if err := json.Unmarshal(cfgStr, cfg); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
 type polarisNamingBalancer struct {
 	cc      balancer.ClientConn
 	target  resolver.Target
@@ -63,11 +106,14 @@ type polarisNamingBalancer struct {
 	csEvltr *balancer.ConnectivityStateEvaluator
 	state   connectivity.State
 
-	subConns map[resolver.Address]balancer.SubConn
+	subConns map[string]balancer.SubConn
 	scStates map[balancer.SubConn]connectivity.State
 
 	v2Picker    balancer.Picker
-	consumerAPI api.ConsumerAPI
+	consumerAPI polaris.ConsumerAPI
+	routerAPI   polaris.RouterAPI
+
+	lbCfg *LBConfig
 
 	options *dialOptions
 
@@ -104,20 +150,26 @@ func (p *polarisNamingBalancer) Close() {
 
 }
 
+func buildAddressKey(addr resolver.Address) string {
+	return fmt.Sprintf("%s", addr.Addr)
+}
+
 func (p *polarisNamingBalancer) createSubConnection(addr resolver.Address) {
+	key := buildAddressKey(addr)
 	p.rwMutex.Lock()
 	defer p.rwMutex.Unlock()
-	if _, ok := p.subConns[addr]; !ok {
-		// a is a new address (not existing in b.subConns).
-		sc, err := p.cc.NewSubConn([]resolver.Address{addr}, balancer.NewSubConnOptions{HealthCheckEnabled: true})
-		if err != nil {
-			grpclog.Warningf("[Polaris]balancer: failed to create new SubConn: %v", err)
-			return
-		}
-		p.subConns[addr] = sc
-		p.scStates[sc] = connectivity.Idle
-		sc.Connect()
+	if _, ok := p.subConns[key]; ok {
+		return
 	}
+	// is a new address (not existing in b.subConns).
+	sc, err := p.cc.NewSubConn([]resolver.Address{addr}, balancer.NewSubConnOptions{HealthCheckEnabled: true})
+	if err != nil {
+		grpclog.Warningf("[Polaris][Balancer] failed to create new SubConn: %v", err)
+		return
+	}
+	p.subConns[key] = sc
+	p.scStates[sc] = connectivity.Idle
+	sc.Connect()
 }
 
 // UpdateClientConnState is called by gRPC when the state of the ClientConn changes.
@@ -126,8 +178,14 @@ func (p *polarisNamingBalancer) createSubConnection(addr resolver.Address) {
 // exponential backoff until a subsequent call to UpdateClientConnState returns a nil error.
 // Any other errors are currently ignored.
 func (p *polarisNamingBalancer) UpdateClientConnState(state balancer.ClientConnState) error {
+	if nil == p.options && nil != state.ResolverState.Attributes {
+		p.options = state.ResolverState.Attributes.Value(keyDialOptions).(*dialOptions)
+	}
+	if state.BalancerConfig != nil {
+		p.lbCfg = state.BalancerConfig.(*LBConfig)
+	}
 	if grpclog.V(2) {
-		grpclog.Infoln("[Polaris]balancer: got new ClientConn state: ", state)
+		grpclog.Infoln("[Polaris][Balancer] got new ClientConn state: ", state)
 	}
 	if len(state.ResolverState.Addresses) == 0 {
 		p.ResolverError(errors.New("produced zero addresses"))
@@ -138,25 +196,23 @@ func (p *polarisNamingBalancer) UpdateClientConnState(state balancer.ClientConnS
 		if nil != err {
 			return err
 		}
-		p.consumerAPI = api.NewConsumerAPIByContext(sdkCtx)
+		p.consumerAPI = polaris.NewConsumerAPIByContext(sdkCtx)
+		p.routerAPI = polaris.NewRouterAPIByContext(sdkCtx)
 	}
 	// Successful resolution; clear resolver error and ensure we return nil.
 	p.resolverErr = nil
-	// addrsSet is the set converted from addrs;
+	// addressSet is the set converted from address;
 	// it's used for a quick lookup of an address.
-	addrsSet := make(map[resolver.Address]struct{})
+	addressSet := make(map[string]struct{})
 	for _, a := range state.ResolverState.Addresses {
-		if nil == p.options {
-			p.options = a.Attributes.Value(keyDialOptions).(*dialOptions)
-		}
-		addrsSet[a] = struct{}{}
+		addressSet[buildAddressKey(a)] = struct{}{}
 		p.createSubConnection(a)
 	}
 	p.rwMutex.Lock()
 	defer p.rwMutex.Unlock()
 	for a, sc := range p.subConns {
 		// a way removed by resolver.
-		if _, ok := addrsSet[a]; !ok {
+		if _, ok := addressSet[a]; !ok {
 			p.cc.RemoveSubConn(sc)
 			delete(p.subConns, a)
 			// Keep the state of this sc in b.scStates until sc's state becomes Shutdown.
@@ -188,7 +244,7 @@ func (p *polarisNamingBalancer) ResolverError(err error) {
 func (p *polarisNamingBalancer) UpdateSubConnState(sc balancer.SubConn, state balancer.SubConnState) {
 	s := state.ConnectivityState
 	if grpclog.V(2) {
-		grpclog.Infof("base.baseBalancer: handle SubConn state change: %p, %v", sc, s)
+		grpclog.Infof("[Polaris][Balancer] handle SubConn state change: %p, %v", sc, s)
 	}
 	oldS, quit := func() (connectivity.State, bool) {
 		p.rwMutex.Lock()
@@ -196,7 +252,7 @@ func (p *polarisNamingBalancer) UpdateSubConnState(sc balancer.SubConn, state ba
 		oldS, ok := p.scStates[sc]
 		if !ok {
 			if grpclog.V(2) {
-				grpclog.Infof("base.baseBalancer: got state changes for an unknown SubConn: %p, %v", sc, s)
+				grpclog.Infof("[Polaris][Balancer] got state changes for an unknown SubConn: %p, %v", sc, s)
 			}
 			return connectivity.TransientFailure, true
 		}
@@ -251,14 +307,16 @@ func (p *polarisNamingBalancer) regeneratePicker(options *dialOptions) {
 	// Filter out all ready SCs from full subConn map.
 	for addr, sc := range p.subConns {
 		if st, ok := p.scStates[sc]; ok && st == connectivity.Ready {
-			readySCs[addr.Addr] = sc
+			readySCs[addr] = sc
 		}
 	}
-	p.v2Picker = &polarisNamingPicker{
+	picker := &polarisNamingPicker{
 		balancer: p,
 		readySCs: readySCs,
 		options:  options,
+		lbCfg:    p.lbCfg,
 	}
+	p.v2Picker = picker
 }
 
 // mergeErrors builds an error from the last connection error and the last resolver error.
@@ -267,10 +325,10 @@ func (p *polarisNamingBalancer) mergeErrors() error {
 	// connErr must always be non-nil unless there are no SubConns, in which
 	// case resolverErr must be non-nil.
 	if p.connErr == nil {
-		return fmt.Errorf("last resolver error: %v", p.resolverErr)
+		return fmt.Errorf("last resolver error: %w", p.resolverErr)
 	}
 	if p.resolverErr == nil {
-		return fmt.Errorf("last connection error: %v", p.connErr)
+		return fmt.Errorf("last connection error: %w", p.connErr)
 	}
 	return fmt.Errorf("last connection error: %v; last resolver error: %v", p.connErr, p.resolverErr)
 }
@@ -279,6 +337,7 @@ type polarisNamingPicker struct {
 	balancer *polarisNamingBalancer
 	readySCs map[string]balancer.SubConn
 	options  *dialOptions
+	lbCfg    *LBConfig
 }
 
 func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
@@ -320,9 +379,11 @@ func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
 //	If the error is not a status error, it will be converted by
 //	gRPC to a status error with code Unknown.
 func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
-	request := &api.GetOneInstanceRequest{}
+	request := &polaris.GetInstancesRequest{}
 	request.Namespace = getNamespace(pnp.options)
 	request.Service = pnp.balancer.target.URL.Host
+	request.SkipRouteFilter = !pnp.options.Route
+
 	if len(pnp.options.DstMetadata) > 0 {
 		request.Metadata = pnp.options.DstMetadata
 	}
@@ -331,35 +392,26 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 		// 如果在Conf中配置了SourceService，则优先使用配置
 		request.SourceService = sourceService
 	} else {
-		// 如果没有配置，则使用gRPC Header作为规则路由元数据
-		if md, ok := metadata.FromOutgoingContext(info.Ctx); ok {
-			mp := make(map[string]string)
-			for kvs := range md {
-				if pnp.options.HeaderPrefix != nil {
-					// 如果配置的前缀不为空，则要求header匹配前缀
-					for _, prefix := range pnp.options.HeaderPrefix {
-						if strings.HasPrefix(kvs, prefix) {
-							mp[strings.TrimPrefix(kvs, prefix)] = md[kvs][0]
-							break
-						}
-					}
-				} else {
-					// 否则全量使用header作为规则路由元数据
-					mp[kvs] = md[kvs][0]
-				}
-			}
-			if len(mp) > 0 {
-				request.SourceService = &model.ServiceInfo{
-					Metadata: mp,
-				}
-			}
+		if err := pnp.addTrafficLabels(info, request); err != nil {
+			grpclog.Errorf("[Polaris][Balancer] fetch traffic labels fail : %+v", err)
 		}
 	}
-	resp, err := pnp.balancer.consumerAPI.GetOneInstance(request)
+
+	if grpclog.V(2) {
+		grpclog.Infof("[Polaris][Balancer] get one instance request : %+v", request)
+	}
+
+	resp, err := pnp.balancer.consumerAPI.GetInstances(request)
 	if nil != err {
 		return balancer.PickResult{}, err
 	}
-	targetInstance := resp.GetInstance()
+
+	lbReq := pnp.buildLoadBalanceRequest(info, resp)
+	oneInsResp, err := pnp.balancer.routerAPI.ProcessLoadBalance(lbReq)
+	if nil != err {
+		return balancer.PickResult{}, err
+	}
+	targetInstance := oneInsResp.GetInstance()
 	addr := fmt.Sprintf("%s:%d", targetInstance.GetHost(), targetInstance.GetPort())
 	subSc, ok := pnp.readySCs[addr]
 	if ok {
@@ -370,33 +422,120 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 			Done:    reporter.report,
 		}, nil
 	}
-	pnp.balancer.createSubConnection(resolver.Address{Addr: addr})
+
 	return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
+}
+
+func (pnp *polarisNamingPicker) buildLoadBalanceRequest(info balancer.PickInfo,
+	destIns model.ServiceInstances) *polaris.ProcessLoadBalanceRequest {
+	lbReq := &polaris.ProcessLoadBalanceRequest{
+		ProcessLoadBalanceRequest: model.ProcessLoadBalanceRequest{
+			DstInstances: destIns,
+		},
+	}
+	if pnp.lbCfg != nil {
+		if pnp.lbCfg.LbPolicy != "" {
+			lbReq.LbPolicy = pnp.lbCfg.LbPolicy
+		}
+		if pnp.lbCfg.HashKey != "" {
+			lbReq.HashKey = []byte(pnp.lbCfg.HashKey)
+		}
+	}
+
+	// if request scope set Lb Info, use first
+	md, ok := metadata.FromOutgoingContext(info.Ctx)
+	if ok {
+		lbPolicyValues := md.Get(polarisRequestLbPolicy)
+		lbHashKeyValues := md.Get(polarisRequestLbHashKey)
+
+		if len(lbPolicyValues) > 0 && len(lbHashKeyValues) > 0 {
+			lbReq.LbPolicy = lbPolicyValues[0]
+			lbReq.HashKey = []byte(lbHashKeyValues[0])
+		}
+	}
+
+	return lbReq
+}
+
+func (pnp *polarisNamingPicker) addTrafficLabels(info balancer.PickInfo, insReq *polaris.GetInstancesRequest) error {
+	req := &model.GetServiceRuleRequest{}
+	req.Namespace = insReq.Namespace
+	req.Service = insReq.Service
+	req.SetTimeout(time.Second)
+	engine := pnp.balancer.consumerAPI.SDKContext().GetEngine()
+	resp, err := engine.SyncGetServiceRule(model.EventRouting, req)
+	if err != nil {
+		grpclog.Errorf("[Polaris][Balancer] ns:%s svc:%s get route rule fail : %+v",
+			req.GetNamespace(), req.GetService(), err)
+		return err
+	}
+
+	if resp == nil || resp.GetValue() == nil {
+		grpclog.Errorf("[Polaris][Balancer] ns:%s svc:%s get route rule empty", req.GetNamespace(), req.GetService())
+		return ErrorPolarisServiceRouteRuleEmpty
+	}
+
+	routeRule := resp.GetValue().(*v1.Routing)
+	labels := make([]string, 0, 4)
+	labels = append(labels, collectRouteLabels(routeRule.GetInbounds())...)
+	labels = append(labels, collectRouteLabels(routeRule.GetInbounds())...)
+
+	header, ok := metadata.FromOutgoingContext(info.Ctx)
+	if !ok {
+		header = metadata.MD{}
+	}
+	for i := range labels {
+		label := labels[i]
+		if strings.Compare(label, model.LabelKeyPath) == 0 {
+			insReq.AddArguments(model.BuildPathArgument(extractBareMethodName(info.FullMethodName)))
+			continue
+		}
+		if strings.HasPrefix(label, model.LabelKeyHeader) {
+			values := header.Get(strings.TrimPrefix(label, model.LabelKeyHeader))
+			if len(values) > 0 {
+				insReq.AddArguments(model.BuildArgumentFromLabel(label, fmt.Sprintf("%+v", values[0])))
+			}
+		}
+	}
+
+	return nil
+}
+
+func collectRouteLabels(routings []*v1.Route) []string {
+	ret := make([]string, 0, 4)
+
+	for i := range routings {
+		route := routings[i]
+		sources := route.GetSources()
+		for p := range sources {
+			source := sources[p]
+			for k := range source.GetMetadata() {
+				ret = append(ret, k)
+			}
+		}
+	}
+
+	return ret
 }
 
 type resultReporter struct {
 	instance    model.Instance
-	consumerAPI api.ConsumerAPI
+	consumerAPI polaris.ConsumerAPI
 	startTime   time.Time
 }
 
 func (r *resultReporter) report(info balancer.DoneInfo) {
-	recvErr := info.Err
 	if !info.BytesReceived {
 		return
 	}
-	callResult := &api.ServiceCallResult{}
+	retStatus, code := reportInfoAnalyzer(info)
+
+	callResult := &polaris.ServiceCallResult{}
 	callResult.CalledInstance = r.instance
-	var code uint32
-	if nil != recvErr {
-		callResult.RetStatus = api.RetFail
-		st, _ := status.FromError(recvErr)
-		code = uint32(st.Code())
-	} else {
-		callResult.RetStatus = api.RetSuccess
-		code = 0
-	}
+	callResult.RetStatus = retStatus
 	callResult.SetDelay(time.Since(r.startTime))
 	callResult.SetRetCode(int32(code))
-	_ = r.consumerAPI.UpdateServiceCallResult(callResult)
+	if err := r.consumerAPI.UpdateServiceCallResult(callResult); err != nil {
+		grpclog.Errorf("[Polaris][Balancer] report grpc call info fail : %+v", err)
+	}
 }

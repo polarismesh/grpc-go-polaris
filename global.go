@@ -18,7 +18,7 @@
 package grpcpolaris
 
 import (
-	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,19 +26,34 @@ import (
 	"github.com/polarismesh/polaris-go/pkg/config"
 )
 
+const (
+	lbConfig = `
+{
+    "loadBalancingConfig":[
+        {
+            "%s":{}
+        }
+    ]
+}
+`
+)
+
 var (
 	// DefaultNamespace default namespace when namespace is not set
 	DefaultNamespace = "default"
 	// DefaultTTL default ttl value when ttl is not set
 	DefaultTTL = 20
-	// LoadBalanceConfig config to do the balance
-	LoadBalanceConfig = fmt.Sprintf("{\n  \"loadBalancingConfig\": [ { \"%s\": {} } ]}", scheme)
 	// DefaultGracefulStopMaxWaitDuration default stop max wait duration when not set
 	DefaultGracefulStopMaxWaitDuration = 30 * time.Second
 	// DefaultDelayStopWaitDuration default delay time before stop
 	DefaultDelayStopWaitDuration = 4 * 2 * time.Second
 	// MinGracefulStopWaitDuration low bound of stop wait duration
 	MinGracefulStopWaitDuration = 5 * time.Second
+)
+
+var (
+	polarisCallerServiceKey   = "polaris.request.caller.service"
+	polarisCallerNamespaceKey = "polaris.request.caller.namespace"
 )
 
 var (
@@ -70,7 +85,23 @@ func PolarisConfig() config.Configuration {
 	return polarisConfig
 }
 
-// SetPolarisConfig set the global polaris configuration
-func SetPolarisConfig(cfg config.Configuration) {
+// setPolarisConfig set the global polaris configuration
+func setPolarisConfig(cfg config.Configuration) {
 	polarisConfig = cfg
+}
+
+func extractBareMethodName(fullMethodName string) string {
+	index := strings.LastIndex(fullMethodName, "/")
+	if index == -1 {
+		return ""
+	}
+	return fullMethodName[index+1:]
+}
+
+func extractBareServiceName(fullMethodName string) string {
+	index := strings.LastIndex(fullMethodName, "/")
+	if index == -1 {
+		return ""
+	}
+	return fullMethodName[:index]
 }

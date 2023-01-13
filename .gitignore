@@ -1,5 +1,6 @@
 polaris/
 .idea/
 .vscode/
-examples/quickstart/consumer/client
-examples/quickstart/provider/server
+
+style_tool/
+goimports-reviser
