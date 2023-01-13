@@ -20,9 +20,6 @@ package main
 import (
 	"context"
 	"fmt"
-	polaris "github.com/polarismesh/grpc-go-polaris"
-	"github.com/polarismesh/polaris-go/pkg/model"
-	"google.golang.org/grpc/balancer"
 	"log"
 	"net"
 	"net/http"
@@ -68,13 +65,6 @@ func main() {
 	if err := http.Serve(listen, echoHandler); nil != err {
 		log.Fatal(err)
 	}
-}
-
-// initReportInfoAnalyzer 设置用户自定义的请求结果状态解析
-func initReportInfoAnalyzer() {
-	polaris.SetReportInfoAnalyzer(func(info balancer.DoneInfo) (model.RetStatus, uint32) {
-		return model.RetSuccess, 0
-	})
 }
 
 // EchoHandler is a http.Handler that implements the echo service.
