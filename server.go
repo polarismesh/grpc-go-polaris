@@ -94,20 +94,18 @@ type RegisterContext struct {
 
 // Serve start polaris server
 func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
-	go func() {
-		pSrv, err := Register(gSrv, lis, opts...)
-		if err != nil {
-			log.Fatalf("polaris register err: %v", err)
-		}
+	pSrv, err := Register(gSrv, lis, opts...)
+	if err != nil {
+		log.Fatalf("polaris register err: %v", err)
+	}
 
-		go func() {
-			c := make(chan os.Signal, 1)
-			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-			s := <-c
-			log.Printf("[Polaris][Naming] receive quit signal: %v", s)
-			signal.Stop(c)
-			pSrv.Stop()
-		}()
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		s := <-c
+		log.Printf("[Polaris][Naming] receive quit signal: %v", s)
+		signal.Stop(c)
+		pSrv.Stop()
 	}()
 
 	return gSrv.Serve(lis)
@@ -218,9 +216,7 @@ func buildRegisterInstanceRequest(srv *Server, serviceName string) *api.Instance
 	registerRequest.Metadata = srv.serverOptions.metadata
 	registerRequest.Version = proto.String(srv.serverOptions.version)
 	registerRequest.ServiceToken = srv.serverOptions.token
-	if *srv.serverOptions.heartbeatEnable {
-		registerRequest.SetTTL(srv.serverOptions.ttl)
-	}
+	registerRequest.SetTTL(srv.serverOptions.ttl)
 	return registerRequest
 }
 

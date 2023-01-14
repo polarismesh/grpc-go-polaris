@@ -45,14 +45,21 @@ func newFuncDialOption(f func(*dialOptions)) *funcDialOption {
 
 type dialOptions struct {
 	gRPCDialOptions []grpc.DialOption
-	Namespace       string            `json:"Namespace"`
-	DstMetadata     map[string]string `json:"dst_metadata"`
-	SrcMetadata     map[string]string `json:"src_metadata"`
-	SrcService      string            `json:"src_service"`
-	// 可选，规则路由Meta匹配前缀，用于过滤作为路由规则的gRPC Header
-	HeaderPrefix []string             `json:"header_prefix"`
-	Config       config.Configuration `json:"-"`
-	Route        bool                 `json:"route"`
+	Namespace       string               `json:"Namespace"`
+	DstMetadata     map[string]string    `json:"dst_metadata"`
+	SrcMetadata     map[string]string    `json:"src_metadata"`
+	SrcService      string               `json:"src_service"`
+	Config          config.Configuration `json:"-"`
+	Route           bool                 `json:"route"`
+	CircuitBreaker  bool                 `json:"circuit_breaker"`
+}
+
+func newDialOptions() *dialOptions {
+	return &dialOptions{
+		gRPCDialOptions: make([]grpc.DialOption, 0, 4),
+		Route:           true,
+		CircuitBreaker:  true,
+	}
 }
 
 // WithGRPCDialOptions set the raw gRPC dialOption
@@ -95,7 +102,6 @@ func WithSrcService(srcService string) DialOption {
 // Deprecated: will remove in 1.4
 func WithHeaderPrefix(headerPrefix []string) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
-		options.HeaderPrefix = headerPrefix
 	})
 }
 
@@ -117,5 +123,19 @@ func WithDisableRouter() DialOption {
 func WithEnableRouter() DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.Route = true
+	})
+}
+
+// WithDisableCircuitBreaker close polaris circuitbreaker ability
+func WithDisableCircuitBreaker() DialOption {
+	return newFuncDialOption(func(options *dialOptions) {
+		options.CircuitBreaker = false
+	})
+}
+
+// WithEnableCircuitBreaker open polaris circuitbreaker ability
+func WithEnableCircuitBreaker() DialOption {
+	return newFuncDialOption(func(options *dialOptions) {
+		options.CircuitBreaker = true
 	})
 }

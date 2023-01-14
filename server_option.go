@@ -27,7 +27,6 @@ type serverOptions struct {
 	gRPCServerOptions []grpc.ServerOption
 	namespace         string
 	svcName           string
-	heartbeatEnable   *bool
 	ttl               int
 	metadata          map[string]string
 	host              string
@@ -50,9 +49,6 @@ func (s *serverOptions) setDefault() {
 	}
 	if s.ttl == 0 {
 		s.ttl = DefaultTTL
-	}
-	if s.heartbeatEnable == nil {
-		setHeartbeatEnable(s, true)
 	}
 	if s.delayRegisterEnable == nil {
 		setDelayRegisterEnable(s, false)
@@ -121,7 +117,7 @@ func newFuncServerOption(f func(*serverOptions)) *funcServerOption {
 }
 
 // WithServerApplication set application name
-// Deprecated: WithServerApplication set the application to register instance
+// Deprecated: use WithServiceName to replace WithServerApplication
 func WithServerApplication(application string) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.svcName = application
@@ -135,15 +131,11 @@ func WithServiceName(svcName string) ServerOption {
 	})
 }
 
-func setHeartbeatEnable(options *serverOptions, enable bool) {
-	options.heartbeatEnable = &enable
-}
-
 // WithHeartbeatEnable enables the heartbeat task to instance
 // Deprecated: will remove in 1.4
 func WithHeartbeatEnable(enable bool) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
-		setHeartbeatEnable(options, enable)
+
 	})
 }
 
@@ -255,6 +247,5 @@ func WithTTL(ttl int) ServerOption {
 // Deprecated: will remove in 1.4
 func WithPort(port int) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
-		options.port = port
 	})
 }
