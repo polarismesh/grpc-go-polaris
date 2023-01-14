@@ -20,6 +20,9 @@ package main
 import (
 	"context"
 	"fmt"
+	polaris "github.com/polarismesh/grpc-go-polaris"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"net"
 	"net/http"
@@ -27,8 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
 	_ "github.com/polarismesh/grpc-go-polaris"
@@ -43,7 +44,10 @@ const (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, "polaris://VersionEchoServerGRPC", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := polaris.DialContext(ctx, "polaris://RouteEchoServerGRPC",
+		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		polaris.WithEnableRouter(),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -89,13 +93,6 @@ func (s *EchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		value = values[0]
 	}
 
-	grays := r.Form["gray"]
-	log.Printf("receive gray is %s\n", grays)
-	var gray string
-	if len(grays) > 0 {
-		gray = grays[0]
-	}
-
 	counts := r.Form["count"]
 	log.Printf("receive count is %s\n", counts)
 	count := defaultCount
@@ -109,8 +106,9 @@ func (s *EchoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var md metadata.MD
-	if len(gray) > 0 {
-		md = metadata.Pairs("gray", gray)
+	uid := r.Header.Get("uid")
+	if len(uid) > 0 {
+		md = metadata.Pairs("uid", uid)
 	}
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	builder := strings.Builder{}

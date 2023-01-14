@@ -20,15 +20,19 @@ package main
 import (
 	"context"
 	"fmt"
+	polaris "github.com/polarismesh/grpc-go-polaris"
+	"github.com/polarismesh/polaris-go/api"
+	"github.com/polarismesh/polaris-go/pkg/model"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/balancer"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	_ "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
@@ -40,10 +44,14 @@ const (
 )
 
 func main() {
+	initFunc()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, "polaris://CircuitBreakerEchoServerGRPC/", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := polaris.DialContext(ctx, "polaris://CircuitBreakerEchoServerGRPC/",
+		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		polaris.WithEnableCircuitBreaker(),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,6 +73,18 @@ func main() {
 	if err := http.Serve(listen, echoHandler); nil != err {
 		log.Fatal(err)
 	}
+}
+
+func initFunc() {
+	polaris.SetReportInfoAnalyzer(func(info balancer.DoneInfo) (model.RetStatus, uint32) {
+		recErr := info.Err
+		if nil != recErr {
+			st, _ := status.FromError(recErr)
+			code := uint32(st.Code())
+			return api.RetFail, code
+		}
+		return api.RetSuccess, 0
+	})
 }
 
 // EchoHandler is a http.Handler that implements the echo service.

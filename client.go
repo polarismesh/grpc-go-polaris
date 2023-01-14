@@ -36,9 +36,7 @@ const (
 
 // DialContext dial target and get connection
 func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *grpc.ClientConn, err error) {
-	options := &dialOptions{
-		Route: true,
-	}
+	options := newDialOptions()
 	for _, opt := range opts {
 		opt.apply(options)
 	}
@@ -65,9 +63,7 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 // BuildTarget build the invoker grpc target
 // Deprecated: will remove in 1.4
 func BuildTarget(target string, opts ...DialOption) (string, error) {
-	options := &dialOptions{
-		Route: true,
-	}
+	options := newDialOptions()
 	for _, opt := range opts {
 		opt.apply(options)
 	}

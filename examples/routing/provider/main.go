@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -32,21 +33,22 @@ import (
 
 var (
 	listenPort int
-	version    string
+	labels     string
 )
 
 func initArgs() {
-	flag.StringVar(&version, "version", "", "eg. 1.0.0")
+	flag.StringVar(&labels, "labels", "", "eg. 1.0.0")
+	flag.IntVar(&listenPort, "port", 0, "")
 }
 
 // EchoVersionService gRPC echo service struct
 type EchoVersionService struct {
-	version string
+	labels string
 }
 
 // Echo gRPC testing method
 func (h *EchoVersionService) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
-	return &pb.EchoResponse{Value: fmt.Sprintf("echo: %s, from %s", req.Value, h.version)}, nil
+	return &pb.EchoResponse{Value: fmt.Sprintf("echo: %s, from %s", req.Value, h.labels)}, nil
 }
 
 func main() {
@@ -60,12 +62,29 @@ func main() {
 	listenAddr := listen.Addr().String()
 	fmt.Printf("listen address is %s\n", listenAddr)
 	srv := grpc.NewServer()
-	pb.RegisterEchoServerServer(srv, &EchoVersionService{version: version})
+	pb.RegisterEchoServerServer(srv, &EchoVersionService{labels: labels})
 	// 启动服务
 	if err := polaris.Serve(srv, listen,
-		polaris.WithServiceName("VersionEchoServerGRPC"),
-		polaris.WithServerVersion(version),
+		polaris.WithServiceName("RouteEchoServerGRPC"),
+		polaris.WithServerMetadata(convertMetadata()),
 	); nil != err {
 		log.Printf("listen err: %v", err)
 	}
+}
+
+func convertMetadata() map[string]string {
+	if len(labels) == 0 {
+		return map[string]string{}
+	}
+	values := strings.Split(labels, "&")
+
+	meta := make(map[string]string)
+	for i := range values {
+		entry := strings.Split(values[i], "=")
+		if len(entry) == 2 {
+			meta[entry[0]] = entry[1]
+		}
+	}
+
+	return meta
 }
