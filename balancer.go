@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -72,9 +73,17 @@ type (
 // Build creates polaris balancer.Balancer implement
 func (bb *balancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
 	grpclog.Infof("[Polaris][Balancer] start to build polaris balancer")
+	target := opts.Target
+	host, port, err := parseHost(target.URL.Host)
+	if err != nil {
+		grpclog.Errorln("[Polaris][Balancer] failed to create balancer: " + err.Error())
+		return nil
+	}
 	return &polarisNamingBalancer{
 		cc:       cc,
 		target:   opts.Target,
+		host:     host,
+		port:     port,
 		subConns: make(map[string]balancer.SubConn),
 		scStates: make(map[balancer.SubConn]connectivity.State),
 		csEvltr:  &balancer.ConnectivityStateEvaluator{},
@@ -101,6 +110,8 @@ func (bb *balancerBuilder) ParseConfig(cfgStr json.RawMessage) (serviceconfig.Lo
 type polarisNamingBalancer struct {
 	cc      balancer.ClientConn
 	target  resolver.Target
+	host    string
+	port    int
 	rwMutex sync.RWMutex
 
 	csEvltr *balancer.ConnectivityStateEvaluator
@@ -115,7 +126,8 @@ type polarisNamingBalancer struct {
 
 	lbCfg *LBConfig
 
-	options *dialOptions
+	options  *dialOptions
+	response *model.InstancesResponse
 
 	resolverErr error // the last error reported by the resolver; cleared on successful resolution
 	connErr     error // the last connection error; cleared upon leaving TransientFailure
@@ -181,6 +193,10 @@ func (p *polarisNamingBalancer) UpdateClientConnState(state balancer.ClientConnS
 	if nil == p.options && nil != state.ResolverState.Attributes {
 		p.options = state.ResolverState.Attributes.Value(keyDialOptions).(*dialOptions)
 	}
+	if nil != state.ResolverState.Attributes {
+		p.response = state.ResolverState.Attributes.Value(keyResponse).(*model.InstancesResponse)
+	}
+
 	if state.BalancerConfig != nil {
 		p.lbCfg = state.BalancerConfig.(*LBConfig)
 	}
@@ -310,11 +326,26 @@ func (p *polarisNamingBalancer) regeneratePicker(options *dialOptions) {
 			readySCs[addr] = sc
 		}
 	}
+
+	totalWeight := 0
+	readyInstances := make([]model.Instance, 0, len(readySCs))
+	copyR := *p.response
+	for _, instance := range copyR.Instances {
+		// see buildAddressKey
+		key := instance.GetHost() + ":" + strconv.FormatInt(int64(instance.GetPort()), 10)
+		if _, ok := readySCs[key]; ok {
+			readyInstances = append(readyInstances, instance)
+			totalWeight += instance.GetWeight()
+		}
+	}
+	copyR.Instances = readyInstances
+	copyR.TotalWeight = totalWeight
 	picker := &polarisNamingPicker{
 		balancer: p,
 		readySCs: readySCs,
 		options:  options,
 		lbCfg:    p.lbCfg,
+		response: &copyR,
 	}
 	p.v2Picker = picker
 }
@@ -338,6 +369,7 @@ type polarisNamingPicker struct {
 	readySCs map[string]balancer.SubConn
 	options  *dialOptions
 	lbCfg    *LBConfig
+	response *model.InstancesResponse
 }
 
 func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
@@ -379,31 +411,30 @@ func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
 //	If the error is not a status error, it will be converted by
 //	gRPC to a status error with code Unknown.
 func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
-	request := &polaris.GetInstancesRequest{}
-	request.Namespace = getNamespace(pnp.options)
-	request.Service = pnp.balancer.target.URL.Host
-	request.SkipRouteFilter = !pnp.options.Route
-
-	if len(pnp.options.DstMetadata) > 0 {
-		request.Metadata = pnp.options.DstMetadata
-	}
-	sourceService := buildSourceInfo(pnp.options)
-	if sourceService != nil {
-		// 如果在Conf中配置了SourceService，则优先使用配置
-		request.SourceService = sourceService
-	} else {
-		if err := pnp.addTrafficLabels(info, request); err != nil {
-			grpclog.Errorf("[Polaris][Balancer] fetch traffic labels fail : %+v", err)
+	var resp *model.InstancesResponse
+	if pnp.options.Route {
+		request := &polaris.ProcessRoutersRequest{}
+		request.DstInstances = pnp.response
+		sourceService := buildSourceInfo(pnp.options)
+		if sourceService != nil {
+			// 如果在Conf中配置了SourceService，则优先使用配置
+			request.SourceService = *sourceService
+		} else {
+			if err := pnp.addTrafficLabels(info, request); err != nil {
+				grpclog.Errorf("[Polaris][Balancer] fetch traffic labels fail : %+v", err)
+			}
 		}
-	}
 
-	if grpclog.V(2) {
-		grpclog.Infof("[Polaris][Balancer] get one instance request : %+v", request)
-	}
-
-	resp, err := pnp.balancer.consumerAPI.GetInstances(request)
-	if nil != err {
-		return balancer.PickResult{}, err
+		if grpclog.V(2) {
+			grpclog.Infof("[Polaris][Balancer] get one instance request : %+v", request)
+		}
+		var err error
+		resp, err = pnp.balancer.routerAPI.ProcessRouters(request)
+		if err != nil {
+			return balancer.PickResult{}, err
+		}
+	} else {
+		resp = pnp.response
 	}
 
 	lbReq := pnp.buildLoadBalanceRequest(info, resp)
@@ -457,10 +488,10 @@ func (pnp *polarisNamingPicker) buildLoadBalanceRequest(info balancer.PickInfo,
 	return lbReq
 }
 
-func (pnp *polarisNamingPicker) addTrafficLabels(info balancer.PickInfo, insReq *polaris.GetInstancesRequest) error {
+func (pnp *polarisNamingPicker) addTrafficLabels(info balancer.PickInfo, insReq *polaris.ProcessRoutersRequest) error {
 	req := &model.GetServiceRuleRequest{}
-	req.Namespace = insReq.Namespace
-	req.Service = insReq.Service
+	req.Namespace = getNamespace(pnp.options)
+	req.Service = pnp.balancer.host
 	req.SetTimeout(time.Second)
 	engine := pnp.balancer.consumerAPI.SDKContext().GetEngine()
 	resp, err := engine.SyncGetServiceRule(model.EventRouting, req)

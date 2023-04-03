@@ -75,6 +75,12 @@ func PolarisContext() (api.SDKContext, error) {
 	return polarisContext, err
 }
 
+func setPolarisContext(sdkContext api.SDKContext) {
+	mutexPolarisContext.Lock()
+	defer mutexPolarisContext.Unlock()
+	polarisContext = sdkContext
+}
+
 // PolarisConfig get or init the global polaris configuration
 func PolarisConfig() config.Configuration {
 	if polarisConfig == nil {

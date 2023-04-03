@@ -144,9 +144,13 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 		srv.registerContext = registerContext
 		return srv, nil
 	}
-	polarisCtx, err := PolarisContext()
-	if nil != err {
-		return nil, err
+	polarisCtx := srv.serverOptions.SDKContext
+	if polarisCtx == nil {
+		var err error
+		polarisCtx, err = PolarisContext()
+		if nil != err {
+			return nil, err
+		}
 	}
 	if len(srv.serverOptions.host) == 0 {
 		host, err := getLocalHost(polarisCtx.GetConfig().GetGlobal().GetServerConnector().GetAddresses()[0])

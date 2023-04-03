@@ -20,11 +20,13 @@ package grpcpolaris
 import (
 	"time"
 
+	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc"
 )
 
 type serverOptions struct {
 	gRPCServerOptions []grpc.ServerOption
+	SDKContext        api.SDKContext
 	namespace         string
 	svcName           string
 	ttl               int
@@ -121,6 +123,12 @@ func newFuncServerOption(f func(*serverOptions)) *funcServerOption {
 func WithServerApplication(application string) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.svcName = application
+	})
+}
+
+func WithSDKContext(sdkContext api.SDKContext) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		options.SDKContext = sdkContext
 	})
 }
 
