@@ -21,7 +21,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +34,28 @@ import (
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/resolver"
 )
+
+type ResolverContext struct {
+	Target        resolver.Target
+	Host          string
+	Port          int
+	SourceService model.ServiceInfo
+}
+
+// ResolverInterceptor 从 polaris sdk 拉取完 instances 执行过滤
+type ResolverInterceptor interface {
+	After(ctx *ResolverContext, response *model.InstancesResponse) *model.InstancesResponse
+}
+
+var resolverInterceptors []ResolverInterceptor
+
+// RegisterResolverInterceptor
+// NOTE: this function must only be called during initialization time (i.e. in
+// an init() function), and is not thread-safe. If multiple RegisterInterceptor are
+// registered with the same name, the one registered last will take effect.
+func RegisterResolverInterceptor(i ResolverInterceptor) {
+	resolverInterceptors = append(resolverInterceptors, i)
+}
 
 type resolverBuilder struct {
 }
@@ -76,6 +101,10 @@ func (rb *resolverBuilder) Build(
 	if nil != err {
 		return nil, err
 	}
+	host, port, err := parseHost(target.URL.Host)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	d := &polarisNamingResolver{
 		ctx:     ctx,
@@ -84,11 +113,28 @@ func (rb *resolverBuilder) Build(
 		rn:      make(chan struct{}, 1),
 		target:  target,
 		options: options,
+		host:    host,
+		port:    port,
 	}
 	d.wg.Add(1)
 	go d.watcher()
 	d.ResolveNow(resolver.ResolveNowOptions{})
 	return d, nil
+}
+
+func parseHost(target string) (string, int, error) {
+	splits := strings.Split(target, ":")
+	if len(splits) > 2 {
+		return "", 0, errors.New("error format host")
+	}
+	if len(splits) == 1 {
+		return target, 0, nil
+	}
+	port, err := strconv.Atoi(splits[1])
+	if err != nil {
+		return "", 0, err
+	}
+	return splits[0], port, nil
 }
 
 type polarisNamingResolver struct {
@@ -100,6 +146,8 @@ type polarisNamingResolver struct {
 	wg      sync.WaitGroup
 	options *dialOptions
 	target  resolver.Target
+	host    string
+	port    int
 }
 
 // ResolveNow The method is called by the gRPC framework to resolve the target name
@@ -119,6 +167,7 @@ func getNamespace(options *dialOptions) string {
 }
 
 const keyDialOptions = "options"
+const keyResponse = "response"
 
 func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, error) {
 	sdkCtx, err := PolarisContext()
@@ -128,18 +177,57 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, err
 	consumerAPI := api.NewConsumerAPIByContext(sdkCtx)
 	instancesRequest := &api.GetInstancesRequest{
 		GetInstancesRequest: model.GetInstancesRequest{
-			Service:         pr.target.URL.Host,
+			Service:         pr.host,
 			Namespace:       getNamespace(pr.options),
 			SkipRouteFilter: true,
 		},
+	}
+	if len(pr.options.DstMetadata) > 0 {
+		instancesRequest.Metadata = pr.options.DstMetadata
 	}
 
 	resp, err := consumerAPI.GetInstances(instancesRequest)
 	if nil != err {
 		return nil, consumerAPI, err
 	}
+
+	updated := false
+	for _, instance := range resp.Instances {
+		if !instance.IsHealthy() || instance.IsIsolated() { // 过滤掉不健康和隔离的。
+			updated = true
+			break
+		}
+	}
+	if updated { // 少数情况，避免创建 slice
+		usedInstances := make([]model.Instance, 0, len(resp.Instances))
+		totalWeight := 0
+		for _, instance := range resp.Instances {
+			if !instance.IsHealthy() || instance.IsIsolated() {
+				continue
+			}
+			usedInstances = append(usedInstances, instance)
+			totalWeight += instance.GetWeight()
+		}
+		resp.Instances = usedInstances
+		resp.TotalWeight = totalWeight
+	}
+
+	rc := &ResolverContext{
+		Target: pr.target,
+		Host:   pr.host,
+		Port:   pr.port,
+		SourceService: model.ServiceInfo{
+			Namespace: getNamespace(pr.options),
+			Service:   pr.host,
+			Metadata:  pr.options.DstMetadata,
+		},
+	}
+	for _, interceptor := range resolverInterceptors {
+		resp = interceptor.After(rc, resp)
+	}
+
 	state := &resolver.State{
-		Attributes: attributes.New(keyDialOptions, pr.options),
+		Attributes: attributes.New(keyDialOptions, pr.options).WithValue(keyResponse, resp),
 	}
 	for _, instance := range resp.Instances {
 		state.Addresses = append(state.Addresses, resolver.Address{
@@ -154,7 +242,7 @@ func (pr *polarisNamingResolver) doWatch(
 	watchRequest := &api.WatchServiceRequest{}
 	watchRequest.Key = model.ServiceKey{
 		Namespace: getNamespace(pr.options),
-		Service:   pr.target.URL.Host,
+		Service:   pr.host,
 	}
 	resp, err := consumerAPI.WatchService(watchRequest)
 	if nil != err {

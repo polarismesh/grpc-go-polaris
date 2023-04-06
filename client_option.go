@@ -18,6 +18,7 @@
 package grpcpolaris
 
 import (
+	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
 	"google.golang.org/grpc"
 )
@@ -50,6 +51,7 @@ type dialOptions struct {
 	SrcMetadata     map[string]string    `json:"src_metadata"`
 	SrcService      string               `json:"src_service"`
 	Config          config.Configuration `json:"-"`
+	SDKContext      api.SDKContext       `json:"-"`
 	Route           bool                 `json:"route"`
 	CircuitBreaker  bool                 `json:"circuit_breaker"`
 }
@@ -109,6 +111,12 @@ func WithHeaderPrefix(headerPrefix []string) DialOption {
 func WithPolarisConfig(polarisCfg config.Configuration) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.Config = polarisCfg
+	})
+}
+
+func WithPolarisContext(sdkContext api.SDKContext) DialOption {
+	return newFuncDialOption(func(options *dialOptions) {
+		options.SDKContext = sdkContext
 	})
 }
 
