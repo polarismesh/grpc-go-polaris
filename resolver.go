@@ -167,6 +167,7 @@ func getNamespace(options *dialOptions) string {
 }
 
 const keyDialOptions = "options"
+
 const keyResponse = "response"
 
 func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, error) {
