@@ -20,13 +20,6 @@ package main
 import (
 	"context"
 	"fmt"
-	polaris "github.com/polarismesh/grpc-go-polaris"
-	"github.com/polarismesh/polaris-go/api"
-	"github.com/polarismesh/polaris-go/pkg/model"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"log"
 	"net"
 	"net/http"
@@ -34,7 +27,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/polarismesh/polaris-go/api"
+	"github.com/polarismesh/polaris-go/pkg/model"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/balancer"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+
 	_ "github.com/polarismesh/grpc-go-polaris"
+	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
 
