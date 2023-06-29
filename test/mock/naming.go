@@ -28,20 +28,19 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/uuid"
 	"github.com/polarismesh/polaris-go/pkg/model"
-	namingpb "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
+	apimodel "github.com/polarismesh/specification/source/go/api/v1/model"
+	namingpb "github.com/polarismesh/specification/source/go/api/v1/service_manage"
 	"google.golang.org/grpc"
 )
 
 var (
 	namingTypeReqToResp = map[namingpb.DiscoverRequest_DiscoverRequestType]namingpb.DiscoverResponse_DiscoverResponseType{
-		namingpb.DiscoverRequest_UNKNOWN:     namingpb.DiscoverResponse_UNKNOWN,
-		namingpb.DiscoverRequest_ROUTING:     namingpb.DiscoverResponse_ROUTING,
-		namingpb.DiscoverRequest_CLUSTER:     namingpb.DiscoverResponse_CLUSTER,
-		namingpb.DiscoverRequest_INSTANCE:    namingpb.DiscoverResponse_INSTANCE,
-		namingpb.DiscoverRequest_RATE_LIMIT:  namingpb.DiscoverResponse_RATE_LIMIT,
-		namingpb.DiscoverRequest_MESH_CONFIG: namingpb.DiscoverResponse_MESH_CONFIG,
-		namingpb.DiscoverRequest_MESH:        namingpb.DiscoverResponse_MESH,
-		namingpb.DiscoverRequest_SERVICES:    namingpb.DiscoverResponse_SERVICES,
+		namingpb.DiscoverRequest_UNKNOWN:    namingpb.DiscoverResponse_UNKNOWN,
+		namingpb.DiscoverRequest_ROUTING:    namingpb.DiscoverResponse_ROUTING,
+		namingpb.DiscoverRequest_CLUSTER:    namingpb.DiscoverResponse_CLUSTER,
+		namingpb.DiscoverRequest_INSTANCE:   namingpb.DiscoverResponse_INSTANCE,
+		namingpb.DiscoverRequest_RATE_LIMIT: namingpb.DiscoverResponse_RATE_LIMIT,
+		namingpb.DiscoverRequest_SERVICES:   namingpb.DiscoverResponse_SERVICES,
 	}
 )
 
@@ -73,7 +72,7 @@ func NewNamingServer() NamingServer {
 
 // ReportClient report client message
 func (n *namingServer) ReportClient(ctx context.Context, req *namingpb.Client) (*namingpb.Response, error) {
-	svrLocation := &namingpb.Location{}
+	svrLocation := &apimodel.Location{}
 	respClient := &namingpb.Client{
 		Host:     req.Host,
 		Type:     req.Type,
@@ -81,7 +80,7 @@ func (n *namingServer) ReportClient(ctx context.Context, req *namingpb.Client) (
 		Location: svrLocation,
 	}
 	return &namingpb.Response{
-		Code:   &wrappers.UInt32Value{Value: namingpb.ExecuteSuccess},
+		Code:   &wrappers.UInt32Value{Value: uint32(apimodel.Code_ExecuteSuccess)},
 		Info:   &wrappers.StringValue{Value: "execute success"},
 		Client: respClient,
 	}, nil
@@ -112,8 +111,8 @@ func (n *namingServer) RegisterInstance(ctx context.Context, instance *namingpb.
 	instance.Isolate = &wrappers.BoolValue{Value: false}
 	instances[addr] = instance
 	return &namingpb.Response{
-		Code:      &wrappers.UInt32Value{Value: namingpb.ExecuteSuccess},
-		Namespace: &namingpb.Namespace{Name: instance.GetNamespace()},
+		Code:      &wrappers.UInt32Value{Value: uint32(apimodel.Code_ExecuteSuccess)},
+		Namespace: &apimodel.Namespace{Name: instance.GetNamespace()},
 		Service:   &namingpb.Service{Name: instance.GetService(), Namespace: instance.GetNamespace()},
 		Instance:  instance,
 	}, nil
@@ -140,15 +139,15 @@ func (n *namingServer) DeregisterInstance(ctx context.Context, instance *namingp
 	oldInstance, ok := instances[addr]
 	if !ok {
 		return &namingpb.Response{
-			Code:      &wrappers.UInt32Value{Value: namingpb.ExecuteSuccess},
-			Namespace: &namingpb.Namespace{Name: instance.GetNamespace()},
+			Code:      &wrappers.UInt32Value{Value: uint32(apimodel.Code_ExecuteSuccess)},
+			Namespace: &apimodel.Namespace{Name: instance.GetNamespace()},
 			Service:   &namingpb.Service{Name: instance.GetService(), Namespace: instance.GetNamespace()},
 		}, nil
 	}
 	delete(instances, addr)
 	return &namingpb.Response{
-		Code:      &wrappers.UInt32Value{Value: namingpb.ExecuteSuccess},
-		Namespace: &namingpb.Namespace{Name: instance.GetNamespace()},
+		Code:      &wrappers.UInt32Value{Value: uint32(apimodel.Code_ExecuteSuccess)},
+		Namespace: &apimodel.Namespace{Name: instance.GetNamespace()},
 		Service:   &namingpb.Service{Name: instance.GetService(), Namespace: instance.GetNamespace()},
 		Instance:  oldInstance,
 	}, nil
@@ -170,7 +169,7 @@ func (n *namingServer) Discover(stream namingpb.PolarisGRPC_DiscoverServer) erro
 
 		resp := &namingpb.DiscoverResponse{
 			Type:    namingTypeReqToResp[req.Type],
-			Code:    &wrappers.UInt32Value{Value: namingpb.ExecuteSuccess},
+			Code:    &wrappers.UInt32Value{Value: uint32(apimodel.Code_ExecuteSuccess)},
 			Service: req.Service,
 		}
 		if req.Type == namingpb.DiscoverRequest_INSTANCE {
@@ -218,16 +217,16 @@ func (n *namingServer) Heartbeat(ctx context.Context, instance *namingpb.Instanc
 	_, ok = instances[addr]
 	if !ok {
 		return &namingpb.Response{
-			Code:      &wrappers.UInt32Value{Value: namingpb.NotFoundInstance},
-			Namespace: &namingpb.Namespace{Name: instance.GetNamespace()},
+			Code:      &wrappers.UInt32Value{Value: uint32(apimodel.Code_ExecuteSuccess)},
+			Namespace: &apimodel.Namespace{Name: instance.GetNamespace()},
 			Service:   &namingpb.Service{Name: instance.GetService(), Namespace: instance.GetNamespace()},
 		}, nil
 	}
 	// n.heartbeatCounts[addr] = n.heartbeatCounts[addr] + 1
 	n.heartbeatCounts[addr]++
 	return &namingpb.Response{
-		Code:      &wrappers.UInt32Value{Value: namingpb.ExecuteSuccess},
-		Namespace: &namingpb.Namespace{Name: instance.GetNamespace()},
+		Code:      &wrappers.UInt32Value{Value: uint32(apimodel.Code_ExecuteSuccess)},
+		Namespace: &apimodel.Namespace{Name: instance.GetNamespace()},
 		Service:   &namingpb.Service{Name: instance.GetService(), Namespace: instance.GetNamespace()},
 	}, nil
 }
