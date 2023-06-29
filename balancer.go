@@ -29,7 +29,7 @@ import (
 	"github.com/polarismesh/polaris-go"
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
-	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
+	"github.com/polarismesh/specification/source/go/api/v1/traffic_manage"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"google.golang.org/grpc/connectivity"
@@ -506,7 +506,7 @@ func (pnp *polarisNamingPicker) addTrafficLabels(info balancer.PickInfo, insReq 
 		return ErrorPolarisServiceRouteRuleEmpty
 	}
 
-	routeRule := resp.GetValue().(*v1.Routing)
+	routeRule := resp.GetValue().(*traffic_manage.Routing)
 	labels := make([]string, 0, 4)
 	labels = append(labels, collectRouteLabels(routeRule.GetInbounds())...)
 	labels = append(labels, collectRouteLabels(routeRule.GetInbounds())...)
@@ -532,7 +532,7 @@ func (pnp *polarisNamingPicker) addTrafficLabels(info balancer.PickInfo, insReq 
 	return nil
 }
 
-func collectRouteLabels(routings []*v1.Route) []string {
+func collectRouteLabels(routings []*traffic_manage.Route) []string {
 	ret := make([]string, 0, 4)
 
 	for i := range routings {

@@ -26,7 +26,7 @@ import (
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/flow/data"
 	"github.com/polarismesh/polaris-go/pkg/model"
-	v1 "github.com/polarismesh/polaris-go/pkg/model/pb/v1"
+	"github.com/polarismesh/specification/source/go/api/v1/traffic_manage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -116,18 +116,18 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 	for i := range matchs {
 		item := matchs[i]
 		switch item.GetType() {
-		case v1.MatchArgument_CALLER_SERVICE:
+		case traffic_manage.MatchArgument_CALLER_SERVICE:
 			serviceValues := header.Get(polarisCallerServiceKey)
 			namespaceValues := header.Get(polarisCallerNamespaceKey)
 			if len(serviceValues) > 0 && len(namespaceValues) > 0 {
 				quotaReq.AddArgument(model.BuildCallerServiceArgument(namespaceValues[0], serviceValues[0]))
 			}
-		case v1.MatchArgument_HEADER:
+		case traffic_manage.MatchArgument_HEADER:
 			values := header.Get(item.GetKey())
 			if len(values) > 0 {
 				quotaReq.AddArgument(model.BuildHeaderArgument(item.GetKey(), fmt.Sprintf("%+v", values[0])))
 			}
-		case v1.MatchArgument_CALLER_IP:
+		case traffic_manage.MatchArgument_CALLER_IP:
 			if pr, ok := peer.FromContext(ctx); ok && pr.Addr != nil {
 				address := pr.Addr.String()
 				addrSlice := strings.Split(address, ":")
@@ -142,7 +142,7 @@ func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interf
 	return quotaReq
 }
 
-func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*v1.MatchArgument, bool) {
+func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*traffic_manage.MatchArgument, bool) {
 	engine := p.limitAPI.SDKContext().GetEngine()
 
 	getRuleReq := &data.CommonRateLimitRequest{
@@ -171,14 +171,14 @@ func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*v
 		return nil, false
 	}
 
-	rules, ok := svcRule.GetValue().(*v1.RateLimit)
+	rules, ok := svcRule.GetValue().(*traffic_manage.RateLimit)
 	if !ok {
 		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule invalid",
 			req.GetNamespace(), req.GetService())
 		return nil, false
 	}
 
-	ret := make([]*v1.MatchArgument, 0, 4)
+	ret := make([]*traffic_manage.MatchArgument, 0, 4)
 	for i := range rules.GetRules() {
 		rule := rules.GetRules()[i]
 		if len(rule.GetArguments()) == 0 {
