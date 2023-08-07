@@ -54,7 +54,7 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 
 	lbStr := fmt.Sprintf(lbConfig, scheme)
 	options.gRPCDialOptions = append(options.gRPCDialOptions, grpc.WithDefaultServiceConfig(lbStr))
-	options.gRPCDialOptions = append(options.gRPCDialOptions, grpc.WithUnaryInterceptor(injectCallerInfo(options)))
+	options.gRPCDialOptions = append(options.gRPCDialOptions, grpc.WithChainUnaryInterceptor(injectCallerInfo(options)))
 	jsonStr, err := json.Marshal(options)
 	if nil != err {
 		return nil, fmt.Errorf("fail to marshal options: %w", err)
