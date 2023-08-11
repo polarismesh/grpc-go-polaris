@@ -89,17 +89,20 @@ func BuildTarget(target string, opts ...DialOption) (string, error) {
 	return target, nil
 }
 
+// injectCallerInfo 将主调方信息写入 grpc 请求的 header 中
 func injectCallerInfo(options *dialOptions) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn,
 		invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 
-		if _, ok := metadata.FromOutgoingContext(ctx); !ok {
-			ctx = metadata.NewOutgoingContext(context.Background(), metadata.MD{})
-		}
-
 		if len(options.SrcService) > 0 {
-			ctx = metadata.AppendToOutgoingContext(ctx, polarisCallerServiceKey, options.SrcService)
-			ctx = metadata.AppendToOutgoingContext(ctx, polarisCallerNamespaceKey, options.Namespace)
+			if _, ok := metadata.FromOutgoingContext(ctx); !ok {
+				ctx = metadata.NewOutgoingContext(ctx, metadata.MD{})
+			}
+
+			ctx = metadata.AppendToOutgoingContext(ctx,
+				polarisCallerServiceKey, options.SrcService,
+				polarisCallerNamespaceKey, options.Namespace,
+			)
 		}
 
 		return invoker(ctx, method, req, reply, cc, opts...)

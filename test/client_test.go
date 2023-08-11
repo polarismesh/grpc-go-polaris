@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc"
@@ -83,7 +84,10 @@ func (s *clientTestingSuite) TestClientCall(c *check.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	conn, err := polaris.DialContext(ctx, "polaris://"+serverSvc+"/",
-		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		polaris.WithGRPCDialOptions(
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithUnaryInterceptor(clientInterceptor),
+		),
 		polaris.WithClientNamespace(serverNamespace))
 	if err != nil {
 		log.Fatal(err)
@@ -92,8 +96,16 @@ func (s *clientTestingSuite) TestClientCall(c *check.C) {
 
 	client := hello.NewHelloClient(conn)
 	for i := 0; i < 5; i++ {
-		_, err := client.SayHello(context.Background(), &hello.HelloRequest{Name: "hello"})
+		// 设置 grpc header
+		reqCtx := context.WithValue(context.TODO(), "round", strconv.Itoa(i))
+		_, err := client.SayHello(reqCtx, &hello.HelloRequest{Name: "hello"})
 		c.Assert(err, check.IsNil)
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// clientInterceptor 模拟一个客户端自定义拦截器
+func clientInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	fmt.Printf("round: %s\n", ctx.Value("round"))
+	return nil
 }
