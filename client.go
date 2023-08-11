@@ -54,7 +54,7 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 
 	lbStr := fmt.Sprintf(lbConfig, scheme)
 	options.gRPCDialOptions = append(options.gRPCDialOptions, grpc.WithDefaultServiceConfig(lbStr))
-	options.gRPCDialOptions = append(options.gRPCDialOptions, grpc.WithUnaryInterceptor(injectCallerInfo(options)))
+	options.gRPCDialOptions = append(options.gRPCDialOptions, grpc.WithChainUnaryInterceptor(injectCallerInfo(options)))
 	jsonStr, err := json.Marshal(options)
 	if nil != err {
 		return nil, fmt.Errorf("fail to marshal options: %w", err)
@@ -89,17 +89,20 @@ func BuildTarget(target string, opts ...DialOption) (string, error) {
 	return target, nil
 }
 
+// injectCallerInfo 将主调方信息写入 grpc 请求的 header 中
 func injectCallerInfo(options *dialOptions) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn,
 		invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 
-		if _, ok := metadata.FromOutgoingContext(ctx); !ok {
-			ctx = metadata.NewOutgoingContext(context.Background(), metadata.MD{})
-		}
-
 		if len(options.SrcService) > 0 {
-			ctx = metadata.AppendToOutgoingContext(ctx, polarisCallerServiceKey, options.SrcService)
-			ctx = metadata.AppendToOutgoingContext(ctx, polarisCallerNamespaceKey, options.Namespace)
+			if _, ok := metadata.FromOutgoingContext(ctx); !ok {
+				ctx = metadata.NewOutgoingContext(ctx, metadata.MD{})
+			}
+
+			ctx = metadata.AppendToOutgoingContext(ctx,
+				polarisCallerServiceKey, options.SrcService,
+				polarisCallerNamespaceKey, options.Namespace,
+			)
 		}
 
 		return invoker(ctx, method, req, reply, cc, opts...)

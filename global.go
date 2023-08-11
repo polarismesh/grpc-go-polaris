@@ -51,7 +51,7 @@ var (
 	MinGracefulStopWaitDuration = 5 * time.Second
 )
 
-var (
+const (
 	polarisCallerServiceKey   = "polaris.request.caller.service"
 	polarisCallerNamespaceKey = "polaris.request.caller.namespace"
 )
