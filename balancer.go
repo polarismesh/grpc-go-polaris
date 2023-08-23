@@ -412,10 +412,11 @@ func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
 //	gRPC to a status error with code Unknown.
 func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	var resp *model.InstancesResponse
+	sourceService := buildSourceInfo(pnp.options)
+
 	if pnp.options.Route {
 		request := &polaris.ProcessRoutersRequest{}
 		request.DstInstances = pnp.response
-		sourceService := buildSourceInfo(pnp.options)
 		if sourceService != nil {
 			// 如果在Conf中配置了SourceService，则优先使用配置
 			request.SourceService = *sourceService
@@ -447,16 +448,10 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 	subSc, ok := pnp.readySCs[addr]
 	if ok {
 		reporter := &resultReporter{
-			instance:    targetInstance,
-			consumerAPI: pnp.balancer.consumerAPI,
-			startTime:   time.Now(),
-		}
-		if pnp.options.SrcService != "" {
-			reporter.sourceService = &model.ServiceInfo{
-				Service:   pnp.options.SrcService,
-				Namespace: pnp.options.Namespace,
-				Metadata:  pnp.options.SrcMetadata,
-			}
+			instance:      targetInstance,
+			consumerAPI:   pnp.balancer.consumerAPI,
+			startTime:     time.Now(),
+			sourceService: sourceService,
 		}
 
 		return balancer.PickResult{
