@@ -412,10 +412,11 @@ func buildSourceInfo(options *dialOptions) *model.ServiceInfo {
 //	gRPC to a status error with code Unknown.
 func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	var resp *model.InstancesResponse
+	sourceService := buildSourceInfo(pnp.options)
+
 	if pnp.options.Route {
 		request := &polaris.ProcessRoutersRequest{}
 		request.DstInstances = pnp.response
-		sourceService := buildSourceInfo(pnp.options)
 		if sourceService != nil {
 			// 如果在Conf中配置了SourceService，则优先使用配置
 			request.SourceService = *sourceService
@@ -447,7 +448,12 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 	subSc, ok := pnp.readySCs[addr]
 	if ok {
 		reporter := &resultReporter{
-			instance: targetInstance, consumerAPI: pnp.balancer.consumerAPI, startTime: time.Now()}
+			instance:      targetInstance,
+			consumerAPI:   pnp.balancer.consumerAPI,
+			startTime:     time.Now(),
+			sourceService: sourceService,
+		}
+
 		return balancer.PickResult{
 			SubConn: subSc,
 			Done:    reporter.report,
@@ -550,9 +556,10 @@ func collectRouteLabels(routings []*traffic_manage.Route) []string {
 }
 
 type resultReporter struct {
-	instance    model.Instance
-	consumerAPI polaris.ConsumerAPI
-	startTime   time.Time
+	instance      model.Instance
+	consumerAPI   polaris.ConsumerAPI
+	startTime     time.Time
+	sourceService *model.ServiceInfo
 }
 
 func (r *resultReporter) report(info balancer.DoneInfo) {
@@ -564,6 +571,7 @@ func (r *resultReporter) report(info balancer.DoneInfo) {
 	callResult := &polaris.ServiceCallResult{}
 	callResult.CalledInstance = r.instance
 	callResult.RetStatus = retStatus
+	callResult.SourceService = r.sourceService
 	callResult.SetDelay(time.Since(r.startTime))
 	callResult.SetRetCode(int32(code))
 	if err := r.consumerAPI.UpdateServiceCallResult(callResult); err != nil {
