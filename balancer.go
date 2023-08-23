@@ -447,7 +447,18 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 	subSc, ok := pnp.readySCs[addr]
 	if ok {
 		reporter := &resultReporter{
-			instance: targetInstance, consumerAPI: pnp.balancer.consumerAPI, startTime: time.Now()}
+			instance:    targetInstance,
+			consumerAPI: pnp.balancer.consumerAPI,
+			startTime:   time.Now(),
+		}
+		if pnp.options.SrcService != "" {
+			reporter.sourceService = &model.ServiceInfo{
+				Service:   pnp.options.SrcService,
+				Namespace: pnp.options.Namespace,
+				Metadata:  pnp.options.SrcMetadata,
+			}
+		}
+
 		return balancer.PickResult{
 			SubConn: subSc,
 			Done:    reporter.report,
@@ -550,9 +561,10 @@ func collectRouteLabels(routings []*traffic_manage.Route) []string {
 }
 
 type resultReporter struct {
-	instance    model.Instance
-	consumerAPI polaris.ConsumerAPI
-	startTime   time.Time
+	instance      model.Instance
+	consumerAPI   polaris.ConsumerAPI
+	startTime     time.Time
+	sourceService *model.ServiceInfo
 }
 
 func (r *resultReporter) report(info balancer.DoneInfo) {
