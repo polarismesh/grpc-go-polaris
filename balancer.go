@@ -576,6 +576,7 @@ func (r *resultReporter) report(info balancer.DoneInfo) {
 	callResult := &polaris.ServiceCallResult{}
 	callResult.CalledInstance = r.instance
 	callResult.RetStatus = retStatus
+	callResult.SourceService = r.sourceService
 	callResult.SetDelay(time.Since(r.startTime))
 	callResult.SetRetCode(int32(code))
 	if err := r.consumerAPI.UpdateServiceCallResult(callResult); err != nil {
