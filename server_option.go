@@ -252,8 +252,9 @@ func WithTTL(ttl int) ServerOption {
 }
 
 // WithPort set the port to register instance
-// Deprecated: will remove in 1.4
+// 该方法非必需调用, 建议只在注册端口和程序实际监听端口需要不一致时才调用
 func WithPort(port int) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
+		options.port = port
 	})
 }
