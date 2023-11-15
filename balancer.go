@@ -74,7 +74,7 @@ type (
 func (bb *balancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
 	grpclog.Infof("[Polaris][Balancer] start to build polaris balancer")
 	target := opts.Target
-	host, port, err := parseHost(target.URL.Host)
+	host, _, err := parseHost(target.URL.Host)
 	if err != nil {
 		grpclog.Errorln("[Polaris][Balancer] failed to create balancer: " + err.Error())
 		return nil
@@ -83,7 +83,6 @@ func (bb *balancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOpti
 		cc:       cc,
 		target:   opts.Target,
 		host:     host,
-		port:     port,
 		subConns: make(map[string]balancer.SubConn),
 		scStates: make(map[balancer.SubConn]connectivity.State),
 		csEvltr:  &balancer.ConnectivityStateEvaluator{},
@@ -111,7 +110,6 @@ type polarisNamingBalancer struct {
 	cc      balancer.ClientConn
 	target  resolver.Target
 	host    string
-	port    int
 	rwMutex sync.RWMutex
 
 	csEvltr *balancer.ConnectivityStateEvaluator

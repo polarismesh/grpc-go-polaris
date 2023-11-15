@@ -159,11 +159,13 @@ func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Serve
 		}
 		srv.serverOptions.host = host
 	}
-	port, err := parsePort(lis.Addr().String())
-	if nil != err {
-		return nil, fmt.Errorf("error occur while parsing port from listener: %w", err)
+	if srv.serverOptions.port == 0 {
+		port, err := parsePort(lis.Addr().String())
+		if nil != err {
+			return nil, fmt.Errorf("error occur while parsing port from listener: %w", err)
+		}
+		srv.serverOptions.port = port
 	}
-	srv.serverOptions.port = port
 
 	if *srv.serverOptions.delayRegisterEnable {
 		delayStrategy := srv.serverOptions.delayRegisterStrategy

@@ -114,6 +114,7 @@ func WithPolarisConfig(polarisCfg config.Configuration) DialOption {
 	})
 }
 
+// WithPolarisContext set polaris SDKContext
 func WithPolarisContext(sdkContext api.SDKContext) DialOption {
 	return newFuncDialOption(func(options *dialOptions) {
 		options.SDKContext = sdkContext
