@@ -131,6 +131,7 @@ func WithServerApplication(application string) ServerOption {
 	})
 }
 
+// Deprecated: 该方法将在下一个版本不在生效可用
 func WithSDKContext(sdkContext api.SDKContext) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		setPolarisContext(sdkContext)
