@@ -148,18 +148,18 @@ func (srv *Server) Serve(lis net.Listener) error {
 }
 
 // Stop deregister and stop
-func (s *Server) Stop() {
-	s.Deregister()
+func (srv *Server) Stop() {
+	srv.Deregister()
 
-	if !*s.serverOptions.gracefulStopEnable {
-		s.Server.Stop()
+	if !*srv.serverOptions.gracefulStopEnable {
+		srv.Server.Stop()
 		return
 	}
 
 	ctx, cancel := context.WithDeadline(context.Background(),
-		time.Now().Add(s.serverOptions.gracefulStopMaxWaitDuration))
+		time.Now().Add(srv.serverOptions.gracefulStopMaxWaitDuration))
 	go func() {
-		s.Server.GracefulStop()
+		srv.Server.GracefulStop()
 		cancel()
 	}()
 
@@ -167,8 +167,8 @@ func (s *Server) Stop() {
 }
 
 // Deregister deregister services from polaris
-func (s *Server) Deregister() {
-	deregisterServices(s.registerContext)
+func (srv *Server) Deregister() {
+	deregisterServices(srv.registerContext)
 }
 
 // Serve start polaris server
