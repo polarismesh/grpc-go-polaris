@@ -24,8 +24,6 @@ import (
 	"net"
 	"time"
 
-	"google.golang.org/grpc"
-
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
@@ -45,23 +43,26 @@ func (h *EchoQuickStartService) Echo(ctx context.Context, req *pb.EchoRequest) (
 }
 
 func main() {
-	srv := grpc.NewServer()
 	address := fmt.Sprintf("0.0.0.0:%d", listenPort)
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
-	pb.RegisterEchoServerServer(srv, &EchoQuickStartService{
+
+	srv, err := polaris.NewServer(polaris.WithServiceName("QuickStartEchoServerGRPC"),
+		polaris.WithServerHost("127.0.0.1"),
+		polaris.WithDelayRegisterEnable(&polaris.WaitDelayStrategy{WaitTime: 10 * time.Second}),
+		polaris.WithGracefulStopEnable(10*time.Second))
+	if err != nil {
+		log.Fatalf("Failed to addr %s: %v", address, err)
+	}
+
+	pb.RegisterEchoServerServer(srv.Server, &EchoQuickStartService{
 		actualPort: listen.Addr().(*net.TCPAddr).Port,
 	})
 
 	// 启动服务
-	if err := polaris.Serve(srv, listen,
-		polaris.WithServiceName("QuickStartEchoServerGRPC"),
-		polaris.WithServerHost("127.0.0.1"),
-		polaris.WithDelayRegisterEnable(&polaris.WaitDelayStrategy{WaitTime: 10 * time.Second}),
-		polaris.WithGracefulStopEnable(10*time.Second),
-	); nil != err {
+	if err := srv.Serve(listen); nil != err {
 		log.Printf("listen err: %v", err)
 	}
 }

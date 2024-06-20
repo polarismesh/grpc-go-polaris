@@ -23,8 +23,6 @@ import (
 	"log"
 	"net"
 
-	"google.golang.org/grpc"
-
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
 )
@@ -48,15 +46,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to addr %s: %v", address, err)
 	}
-	listenAddr := listen.Addr().String()
-	fmt.Printf("listen address is %s\n", listenAddr)
-	interceptor := polaris.NewRateLimitInterceptor().WithServiceName("RateLimitEchoServerGRPC")
-	srv := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryInterceptor))
-	pb.RegisterEchoServerServer(srv, &EchoRateLimitService{})
+
+	srv, err := polaris.NewServer(polaris.WithServiceName("RateLimitEchoServerGRPC"),
+		polaris.WithServerHost("127.0.0.1"),
+		// 开启限流能力
+		polaris.WithPolarisRateLimit(),
+	)
+	if err != nil {
+		log.Fatalf("Failed to addr %s: %v", address, err)
+	}
+
+	pb.RegisterEchoServerServer(srv.Server, &EchoRateLimitService{})
+
 	// 启动服务
-	if err := polaris.Serve(srv, listen,
-		polaris.WithServiceName("RateLimitEchoServerGRPC"),
-	); nil != err {
+	if err := srv.Serve(listen); nil != err {
 		log.Printf("listen err: %v", err)
 	}
 }

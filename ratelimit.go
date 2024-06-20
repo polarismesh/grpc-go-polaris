@@ -48,6 +48,11 @@ func NewRateLimitInterceptor() *RateLimitInterceptor {
 	return &RateLimitInterceptor{limitAPI: api.NewLimitAPIByContext(polarisCtx)}
 }
 
+// NewRateLimitInterceptor creates a new RateLimitInterceptor.
+func newRateLimitInterceptor(sdkCtx api.SDKContext) *RateLimitInterceptor {
+	return &RateLimitInterceptor{limitAPI: api.NewLimitAPIByContext(sdkCtx)}
+}
+
 // WithNamespace sets the namespace of the service.
 func (p *RateLimitInterceptor) WithNamespace(namespace string) *RateLimitInterceptor {
 	p.namespace = namespace

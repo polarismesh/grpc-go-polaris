@@ -43,6 +43,7 @@ type ctrlOptions struct {
 	delayRegisterStrategy       DelayStrategy
 	gracefulStopEnable          *bool
 	gracefulStopMaxWaitDuration time.Duration
+	enableRatelimit             *bool
 }
 
 func (s *serverOptions) setDefault() {
@@ -67,6 +68,9 @@ func (s *serverOptions) setDefault() {
 		if s.gracefulStopMaxWaitDuration <= 0 {
 			setGracefulStopMaxWaitDuration(s, DefaultGracefulStopMaxWaitDuration)
 		}
+	}
+	if s.config == nil {
+		s.config = PolarisConfig()
 	}
 }
 
@@ -256,5 +260,20 @@ func WithTTL(ttl int) ServerOption {
 func WithPort(port int) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.port = port
+	})
+}
+
+// WithServerPolarisConfig set polaris configuration
+func WithServerPolarisConfig(polarisCfg config.Configuration) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		options.config = polarisCfg
+	})
+}
+
+// WithPolarisLimit 开启北极星服务端限流能力
+func WithPolarisRateLimit() ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		enable := true
+		options.enableRatelimit = &enable
 	})
 }
