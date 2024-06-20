@@ -43,9 +43,6 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 	if options.Config != nil {
 		setPolarisConfig(options.Config)
 	}
-	if options.SDKContext != nil {
-		setPolarisContext(options.SDKContext)
-	}
 
 	if !strings.HasPrefix(target, prefix) {
 		// not polaris target, go through gRPC resolver
@@ -79,9 +76,6 @@ func BuildTarget(target string, opts ...DialOption) (string, error) {
 
 	if options.Config != nil {
 		setPolarisConfig(options.Config)
-	}
-	if options.SDKContext != nil {
-		setPolarisContext(options.SDKContext)
 	}
 
 	endpoint := base64.URLEncoding.EncodeToString(jsonStr)

@@ -27,7 +27,6 @@ import (
 
 type serverOptions struct {
 	gRPCServerOptions []grpc.ServerOption
-	SDKContext        api.SDKContext
 	config            config.Configuration
 	namespace         string
 	svcName           string
@@ -134,7 +133,7 @@ func WithServerApplication(application string) ServerOption {
 
 func WithSDKContext(sdkContext api.SDKContext) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
-		options.SDKContext = sdkContext
+		setPolarisContext(sdkContext)
 	})
 }
 
@@ -269,13 +268,6 @@ func WithPort(port int) ServerOption {
 func WithServerPolarisConfig(polarisCfg config.Configuration) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		options.config = polarisCfg
-	})
-}
-
-// WithPolarisContext set polaris SDKContext
-func WithServerPolarisContext(sdkContext api.SDKContext) DialOption {
-	return newFuncDialOption(func(options *dialOptions) {
-		options.SDKContext = sdkContext
 	})
 }
 
