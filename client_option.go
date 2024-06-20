@@ -21,9 +21,6 @@ import (
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/config"
 	"google.golang.org/grpc"
-
-	"github.com/polarismesh/polaris-go/pkg/config"
-	"google.golang.org/grpc"
 )
 
 // DialOption dialOptions for gRPC-Go-Polaris

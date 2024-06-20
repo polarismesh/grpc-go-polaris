@@ -27,10 +27,6 @@ import (
 	"strings"
 	"time"
 
-	polaris "github.com/polarismesh/grpc-go-polaris"
-	"github.com/polarismesh/polaris-go/pkg/model"
-	"google.golang.org/grpc/balancer"
-
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
 	"google.golang.org/grpc"
