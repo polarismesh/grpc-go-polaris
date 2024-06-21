@@ -214,6 +214,7 @@ func buildRegisterInstanceRequest(srv *Server, serviceName string) *api.Instance
 	registerRequest.Metadata = srv.serverOptions.metadata
 	registerRequest.Version = proto.String(srv.serverOptions.version)
 	registerRequest.ServiceToken = srv.serverOptions.token
+	registerRequest.AutoHeartbeat = true
 	registerRequest.SetTTL(srv.serverOptions.ttl)
 	return registerRequest
 }
