@@ -65,11 +65,15 @@ func (p *RateLimitInterceptor) WithServiceName(svcName string) *RateLimitInterce
 	return p
 }
 
+func (p *RateLimitInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	return handler(srv, ss)
+}
+
 // UnaryInterceptor returns a unary interceptor for rate limiting.
 func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 
-	quotaReq := p.buildQuotaRequest(ctx, req, info)
+	quotaReq := p.buildQuotaRequest(ctx, req, info.FullMethod)
 	if quotaReq == nil {
 		return handler(ctx, req)
 	}
@@ -86,10 +90,9 @@ func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interfa
 	return handler(ctx, req)
 }
 
-func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interface{},
-	info *grpc.UnaryServerInfo) api.QuotaRequest {
+func (p *RateLimitInterceptor) buildQuotaRequest(ctx context.Context, req interface{}, method string) api.QuotaRequest {
 
-	fullMethodName := info.FullMethod
+	fullMethodName := method
 	tokens := strings.Split(fullMethodName, "/")
 	if len(tokens) != 3 {
 		return nil

@@ -35,18 +35,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// RegisterContext context parameters by register
-type RegisterContext struct {
-	providerAPI      api.ProviderAPI
-	registerRequests []*api.InstanceRegisterRequest
-}
-
 // Server encapsulated server with gRPC option
 type Server struct {
 	*grpc.Server
-	serverOptions   serverOptions
-	sdkCtx          api.SDKContext
-	registerContext *RegisterContext
+	serverOptions    serverOptions
+	sdkCtx           api.SDKContext
+	providerAPI      api.ProviderAPI
+	registerRequests []*api.InstanceRegisterRequest
 }
 
 // NewServer start polaris server
@@ -57,12 +52,13 @@ func NewServer(opts ...ServerOption) (*Server, error) {
 	}
 
 	if srv.serverOptions.enableRatelimit != nil && *srv.serverOptions.enableRatelimit {
+		limiter := newRateLimitInterceptor(srv.sdkCtx).
+			WithNamespace(srv.serverOptions.namespace).
+			WithServiceName(srv.serverOptions.svcName)
 		// 添加北极星限流的 gRPC Interceptor
 		srv.serverOptions.gRPCServerOptions = append(srv.serverOptions.gRPCServerOptions,
-			grpc.ChainUnaryInterceptor(newRateLimitInterceptor(srv.sdkCtx).
-				WithNamespace(srv.serverOptions.namespace).
-				WithServiceName(srv.serverOptions.svcName).
-				UnaryInterceptor))
+			grpc.ChainUnaryInterceptor(limiter.UnaryInterceptor),
+		)
 	}
 
 	gSrv := grpc.NewServer(srv.serverOptions.gRPCServerOptions...)
@@ -77,11 +73,6 @@ func (srv *Server) initResource(opts ...ServerOption) error {
 		opt.apply(&srv.serverOptions)
 	}
 	srv.serverOptions.setDefault()
-	registerContext := &RegisterContext{}
-	polarisCtx, err := api.InitContextByConfig(srv.serverOptions.config)
-	if nil != err {
-		return err
-	}
 
 	if *srv.serverOptions.delayRegisterEnable {
 		delayStrategy := srv.serverOptions.delayRegisterStrategy
@@ -93,10 +84,8 @@ func (srv *Server) initResource(opts ...ServerOption) error {
 		}
 	}
 
-	registerContext.providerAPI = api.NewProviderAPIByContext(polarisCtx)
-
-	srv.sdkCtx = polarisCtx
-	srv.registerContext = registerContext
+	srv.sdkCtx = srv.serverOptions.sdkCtx
+	srv.providerAPI = api.NewProviderAPIByContext(srv.sdkCtx)
 	return nil
 }
 
@@ -117,10 +106,10 @@ func (srv *Server) doRegister(lis net.Listener) error {
 
 	for _, name := range svcInfos {
 		registerRequest := buildRegisterInstanceRequest(srv, name)
-		srv.registerContext.registerRequests = append(srv.registerContext.registerRequests, registerRequest)
-		resp, err := srv.registerContext.providerAPI.RegisterInstance(registerRequest)
+		srv.registerRequests = append(srv.registerRequests, registerRequest)
+		resp, err := srv.providerAPI.RegisterInstance(registerRequest)
 		if nil != err {
-			deregisterServices(srv.registerContext)
+			deregisterServices(srv.providerAPI, srv.registerRequests)
 			return fmt.Errorf("fail to register service %s: %w", name, err)
 		}
 		grpclog.Infof("[Polaris][Naming] success to register %s:%d to service %s(%s), id %s",
@@ -168,7 +157,7 @@ func (srv *Server) Stop() {
 
 // Deregister deregister services from polaris
 func (srv *Server) Deregister() {
-	deregisterServices(srv.registerContext)
+	deregisterServices(srv.providerAPI, srv.registerRequests)
 }
 
 // Serve start polaris server
@@ -251,18 +240,18 @@ func parsePort(addr string) (int, error) {
 	return strconv.Atoi(portStr)
 }
 
-func deregisterServices(registerContext *RegisterContext) {
-	if len(registerContext.registerRequests) == 0 {
+func deregisterServices(providerAPI api.ProviderAPI, services []*api.InstanceRegisterRequest) {
+	if len(services) == 0 {
 		return
 	}
-	for _, registerRequest := range registerContext.registerRequests {
+	for _, registerRequest := range services {
 		deregisterRequest := &api.InstanceDeRegisterRequest{}
 		deregisterRequest.Namespace = registerRequest.Namespace
 		deregisterRequest.Service = registerRequest.Service
 		deregisterRequest.Host = registerRequest.Host
 		deregisterRequest.Port = registerRequest.Port
 		deregisterRequest.ServiceToken = registerRequest.ServiceToken
-		err := registerContext.providerAPI.Deregister(deregisterRequest)
+		err := providerAPI.Deregister(deregisterRequest)
 		if nil != err {
 			grpclog.Errorf("[Polaris][Naming] fail to deregister %s:%d to service %s(%s)",
 				deregisterRequest.Host, deregisterRequest.Port, deregisterRequest.Service, deregisterRequest.Namespace)

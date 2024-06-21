@@ -21,21 +21,30 @@ import (
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
-	"github.com/polarismesh/polaris-go/pkg/config"
 	"google.golang.org/grpc"
 )
 
 type serverOptions struct {
+	// gRPCServerOptions 保留用户自己的 grpc.ServerOption 列表数据
 	gRPCServerOptions []grpc.ServerOption
-	config            config.Configuration
-	namespace         string
-	svcName           string
-	ttl               int
-	metadata          map[string]string
-	host              string
-	port              int
-	version           string
-	token             string
+	// sdkCtx 北极星客户端核心对象
+	sdkCtx api.SDKContext
+	// namespace 服务所在的命名空间
+	namespace string
+	// svcName 服务名称
+	svcName string
+	// ttl 服务实例心跳的 TTL 时间，单位秒
+	ttl int
+	// metadata 服务实例的元数据
+	metadata map[string]string
+	// host 服务实例的 IP 地址
+	host string
+	// port 服务实例的端口
+	port int
+	// version 服务实例的版本号
+	version string
+	// token 如果服务端开启了鉴权，则需要设置该 token
+	token string
 	ctrlOptions
 }
 
@@ -47,7 +56,7 @@ type ctrlOptions struct {
 	enableRatelimit             *bool
 }
 
-func (s *serverOptions) setDefault() {
+func (s *serverOptions) setDefault() error {
 	if len(s.namespace) == 0 {
 		s.namespace = DefaultNamespace
 	}
@@ -70,9 +79,14 @@ func (s *serverOptions) setDefault() {
 			setGracefulStopMaxWaitDuration(s, DefaultGracefulStopMaxWaitDuration)
 		}
 	}
-	if s.config == nil {
-		s.config = PolarisConfig()
+	if s.sdkCtx == nil {
+		sdkCtx, err := PolarisContext()
+		if err != nil {
+			return err
+		}
+		s.sdkCtx = sdkCtx
 	}
+	return nil
 }
 
 // DelayStrategy delay register strategy. e.g. wait some time
@@ -131,41 +145,11 @@ func WithServerApplication(application string) ServerOption {
 	})
 }
 
-// Deprecated: 该方法将在下一个版本不在生效可用
-func WithSDKContext(sdkContext api.SDKContext) ServerOption {
-	return newFuncServerOption(func(options *serverOptions) {
-		setPolarisContext(sdkContext)
-	})
-}
-
-// WithServiceName set the application to register instance
-func WithServiceName(svcName string) ServerOption {
-	return newFuncServerOption(func(options *serverOptions) {
-		options.svcName = svcName
-	})
-}
-
 // WithHeartbeatEnable enables the heartbeat task to instance
 // Deprecated: will remove in 1.4
 func WithHeartbeatEnable(enable bool) ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 
-	})
-}
-
-func setDelayRegisterEnable(options *serverOptions, enable bool) {
-	options.delayRegisterEnable = &enable
-}
-
-func setDelayRegisterStrategy(options *serverOptions, strategy DelayStrategy) {
-	options.delayRegisterStrategy = strategy
-}
-
-// WithDelayRegisterEnable enables delay register
-func WithDelayRegisterEnable(strategy DelayStrategy) ServerOption {
-	return newFuncServerOption(func(options *serverOptions) {
-		setDelayRegisterEnable(options, true)
-		setDelayRegisterStrategy(options, strategy)
 	})
 }
 
@@ -185,12 +169,27 @@ func WithDelayStopDisable() ServerOption {
 	})
 }
 
-func setGracefulStopEnable(options *serverOptions, enable bool) {
-	options.gracefulStopEnable = &enable
+// WithSDKContext 设置用户自定义的北极星 SDKContext
+func WithSDKContext(sdkContext api.SDKContext) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setPolarisContext(sdkContext)
+		options.sdkCtx = sdkContext
+	})
 }
 
-func setGracefulStopMaxWaitDuration(options *serverOptions, duration time.Duration) {
-	options.gracefulStopMaxWaitDuration = duration
+// WithServiceName set the application to register instance
+func WithServiceName(svcName string) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		options.svcName = svcName
+	})
+}
+
+// WithDelayRegisterEnable enables delay register
+func WithDelayRegisterEnable(strategy DelayStrategy) ServerOption {
+	return newFuncServerOption(func(options *serverOptions) {
+		setDelayRegisterEnable(options, true)
+		setDelayRegisterStrategy(options, strategy)
+	})
 }
 
 // WithGracefulStopEnable enables graceful stop
@@ -265,17 +264,26 @@ func WithPort(port int) ServerOption {
 	})
 }
 
-// WithServerPolarisConfig set polaris configuration
-func WithServerPolarisConfig(polarisCfg config.Configuration) ServerOption {
-	return newFuncServerOption(func(options *serverOptions) {
-		options.config = polarisCfg
-	})
-}
-
 // WithPolarisLimit 开启北极星服务端限流能力
 func WithPolarisRateLimit() ServerOption {
 	return newFuncServerOption(func(options *serverOptions) {
 		enable := true
 		options.enableRatelimit = &enable
 	})
+}
+
+func setDelayRegisterEnable(options *serverOptions, enable bool) {
+	options.delayRegisterEnable = &enable
+}
+
+func setDelayRegisterStrategy(options *serverOptions, strategy DelayStrategy) {
+	options.delayRegisterStrategy = strategy
+}
+
+func setGracefulStopEnable(options *serverOptions, enable bool) {
+	options.gracefulStopEnable = &enable
+}
+
+func setGracefulStopMaxWaitDuration(options *serverOptions, duration time.Duration) {
+	options.gracefulStopMaxWaitDuration = duration
 }
