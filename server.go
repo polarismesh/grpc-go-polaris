@@ -26,6 +26,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -42,6 +43,7 @@ type Server struct {
 	sdkCtx           api.SDKContext
 	providerAPI      api.ProviderAPI
 	registerRequests []*api.InstanceRegisterRequest
+	isStop           int32
 }
 
 // NewServer start polaris server
@@ -126,7 +128,7 @@ func (srv *Server) Serve(lis net.Listener) error {
 
 	go func() {
 		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(c, syscall.SIGSEGV, syscall.SIGINT, syscall.SIGTERM)
 		s := <-c
 		log.Printf("[Polaris][Naming] receive quit signal: %v", s)
 		signal.Stop(c)
@@ -138,6 +140,10 @@ func (srv *Server) Serve(lis net.Listener) error {
 
 // Stop deregister and stop
 func (srv *Server) Stop() {
+	if !atomic.CompareAndSwapInt32(&srv.isStop, 0, 1) {
+		return
+	}
+
 	srv.Deregister()
 
 	if !*srv.serverOptions.gracefulStopEnable {
