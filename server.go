@@ -37,59 +37,127 @@ import (
 
 // Server encapsulated server with gRPC option
 type Server struct {
-	gServer         *grpc.Server
-	serverOptions   serverOptions
-	registerContext *RegisterContext
-}
-
-func getLocalHost(serverAddr string) (string, error) {
-	conn, err := net.Dial("tcp", serverAddr)
-	if nil != err {
-		return "", err
-	}
-	localAddr := conn.LocalAddr().String()
-	colonIdx := strings.LastIndex(localAddr, ":")
-	if colonIdx > 0 {
-		return localAddr[:colonIdx], nil
-	}
-	return localAddr, nil
-}
-
-func parsePort(addr string) (int, error) {
-	colonIdx := strings.LastIndex(addr, ":")
-	if colonIdx < 0 {
-		return 0, fmt.Errorf("invalid addr string: %s", addr)
-	}
-	portStr := addr[colonIdx+1:]
-	return strconv.Atoi(portStr)
-}
-
-func deregisterServices(registerContext *RegisterContext) {
-	if len(registerContext.registerRequests) == 0 {
-		return
-	}
-	for _, registerRequest := range registerContext.registerRequests {
-		deregisterRequest := &api.InstanceDeRegisterRequest{}
-		deregisterRequest.Namespace = registerRequest.Namespace
-		deregisterRequest.Service = registerRequest.Service
-		deregisterRequest.Host = registerRequest.Host
-		deregisterRequest.Port = registerRequest.Port
-		deregisterRequest.ServiceToken = registerRequest.ServiceToken
-		err := registerContext.providerAPI.Deregister(deregisterRequest)
-		if nil != err {
-			grpclog.Errorf("[Polaris][Naming] fail to deregister %s:%d to service %s(%s)",
-				deregisterRequest.Host, deregisterRequest.Port, deregisterRequest.Service, deregisterRequest.Namespace)
-			continue
-		}
-		grpclog.Infof("[Polaris][Naming] success to deregister %s:%d to service %s(%s)",
-			deregisterRequest.Host, deregisterRequest.Port, deregisterRequest.Service, deregisterRequest.Namespace)
-	}
-}
-
-// RegisterContext context parameters by register
-type RegisterContext struct {
+	*grpc.Server
+	serverOptions    serverOptions
+	sdkCtx           api.SDKContext
 	providerAPI      api.ProviderAPI
 	registerRequests []*api.InstanceRegisterRequest
+}
+
+// NewServer start polaris server
+func NewServer(opts ...ServerOption) (*Server, error) {
+	srv := &Server{}
+	if err := srv.initResource(opts...); err != nil {
+		return nil, err
+	}
+
+	if srv.serverOptions.enableRatelimit != nil && *srv.serverOptions.enableRatelimit {
+		limiter := newRateLimitInterceptor(srv.sdkCtx).
+			WithNamespace(srv.serverOptions.namespace).
+			WithServiceName(srv.serverOptions.svcName)
+		// 添加北极星限流的 gRPC Interceptor
+		srv.serverOptions.gRPCServerOptions = append(srv.serverOptions.gRPCServerOptions,
+			grpc.ChainUnaryInterceptor(limiter.UnaryInterceptor),
+		)
+	}
+
+	gSrv := grpc.NewServer(srv.serverOptions.gRPCServerOptions...)
+	srv.Server = gSrv
+	return srv, nil
+}
+
+func (srv *Server) initResource(opts ...ServerOption) error {
+	srv.serverOptions = serverOptions{}
+
+	for _, opt := range opts {
+		opt.apply(&srv.serverOptions)
+	}
+	srv.serverOptions.setDefault()
+
+	if *srv.serverOptions.delayRegisterEnable {
+		delayStrategy := srv.serverOptions.delayRegisterStrategy
+		for {
+			if delayStrategy.Allow() {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	srv.sdkCtx = srv.serverOptions.sdkCtx
+	srv.providerAPI = api.NewProviderAPIByContext(srv.sdkCtx)
+	return nil
+}
+
+func (srv *Server) doRegister(lis net.Listener) error {
+	if len(srv.serverOptions.host) == 0 {
+		host, err := getLocalHost(srv.sdkCtx.GetConfig().GetGlobal().GetServerConnector().GetAddresses()[0])
+		if nil != err {
+			return fmt.Errorf("error occur while fetching localhost: %w", err)
+		}
+		srv.serverOptions.host = host
+	}
+	port, err := parsePort(lis.Addr().String())
+	if nil != err {
+		return fmt.Errorf("error occur while parsing port from listener: %w", err)
+	}
+	srv.serverOptions.port = port
+	svcInfos := buildServiceNames(srv.Server, srv)
+
+	for _, name := range svcInfos {
+		registerRequest := buildRegisterInstanceRequest(srv, name)
+		srv.registerRequests = append(srv.registerRequests, registerRequest)
+		resp, err := srv.providerAPI.RegisterInstance(registerRequest)
+		if nil != err {
+			deregisterServices(srv.providerAPI, srv.registerRequests)
+			return fmt.Errorf("fail to register service %s: %w", name, err)
+		}
+		grpclog.Infof("[Polaris][Naming] success to register %s:%d to service %s(%s), id %s",
+			registerRequest.Host, registerRequest.Port, name, registerRequest.Namespace, resp.InstanceID)
+	}
+	return nil
+}
+
+// Serve 代理 gRPC Server 的 Serve
+func (srv *Server) Serve(lis net.Listener) error {
+	if err := srv.doRegister(lis); err != nil {
+		return err
+	}
+
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		s := <-c
+		log.Printf("[Polaris][Naming] receive quit signal: %v", s)
+		signal.Stop(c)
+		srv.Stop()
+	}()
+
+	return srv.Server.Serve(lis)
+}
+
+// Stop deregister and stop
+func (srv *Server) Stop() {
+	srv.Deregister()
+
+	if !*srv.serverOptions.gracefulStopEnable {
+		srv.Server.Stop()
+		return
+	}
+
+	ctx, cancel := context.WithDeadline(context.Background(),
+		time.Now().Add(srv.serverOptions.gracefulStopMaxWaitDuration))
+	go func() {
+		srv.Server.GracefulStop()
+		cancel()
+	}()
+
+	<-ctx.Done()
+}
+
+// Deregister deregister services from polaris
+func (srv *Server) Deregister() {
+	deregisterServices(srv.providerAPI, srv.registerRequests)
 }
 
 // Serve start polaris server
@@ -111,89 +179,13 @@ func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
 	return gSrv.Serve(lis)
 }
 
-// Stop deregister and stop
-func (s *Server) Stop() {
-	s.Deregister()
-
-	if !*s.serverOptions.gracefulStopEnable {
-		s.gServer.Stop()
-		return
-	}
-
-	ctx, cancel := context.WithDeadline(context.Background(),
-		time.Now().Add(s.serverOptions.gracefulStopMaxWaitDuration))
-	go func() {
-		s.gServer.GracefulStop()
-		cancel()
-	}()
-
-	<-ctx.Done()
-}
-
 // Register server as polaris instances
 func Register(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) (*Server, error) {
-	srv := &Server{gServer: gSrv}
-	for _, opt := range opts {
-		opt.apply(&srv.serverOptions)
+	srv := &Server{Server: gSrv}
+	if err := srv.initResource(opts...); err != nil {
+		return nil, err
 	}
-	srv.serverOptions.setDefault()
-	svcInfos := buildServiceNames(srv.gServer, srv)
-
-	registerContext := &RegisterContext{}
-	if len(svcInfos) == 0 {
-		srv.registerContext = registerContext
-		return srv, nil
-	}
-	polarisCtx := srv.serverOptions.SDKContext
-	if polarisCtx == nil {
-		var err error
-		polarisCtx, err = PolarisContext()
-		if nil != err {
-			return nil, err
-		}
-	}
-	if len(srv.serverOptions.host) == 0 {
-		host, err := getLocalHost(polarisCtx.GetConfig().GetGlobal().GetServerConnector().GetAddresses()[0])
-		if nil != err {
-			return nil, fmt.Errorf("error occur while fetching localhost: %w", err)
-		}
-		srv.serverOptions.host = host
-	}
-	if srv.serverOptions.port == 0 {
-		port, err := parsePort(lis.Addr().String())
-		if nil != err {
-			return nil, fmt.Errorf("error occur while parsing port from listener: %w", err)
-		}
-		srv.serverOptions.port = port
-	}
-
-	if *srv.serverOptions.delayRegisterEnable {
-		delayStrategy := srv.serverOptions.delayRegisterStrategy
-		for {
-			if delayStrategy.Allow() {
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
-
-	registerContext.registerRequests = make([]*api.InstanceRegisterRequest, 0, len(svcInfos))
-	registerContext.providerAPI = api.NewProviderAPIByContext(polarisCtx)
-
-	for _, name := range svcInfos {
-		registerRequest := buildRegisterInstanceRequest(srv, name)
-		registerContext.registerRequests = append(registerContext.registerRequests, registerRequest)
-		resp, err := registerContext.providerAPI.RegisterInstance(registerRequest)
-		if nil != err {
-			deregisterServices(registerContext)
-			return nil, fmt.Errorf("fail to register service %s: %w", name, err)
-		}
-		grpclog.Infof("[Polaris][Naming] success to register %s:%d to service %s(%s), id %s",
-			registerRequest.Host, registerRequest.Port, name, registerRequest.Namespace, resp.InstanceID)
-	}
-
-	srv.registerContext = registerContext
-	return srv, nil
+	return srv, srv.doRegister(lis)
 }
 
 func buildServiceNames(gSrv *grpc.Server, svr *Server) []string {
@@ -226,7 +218,46 @@ func buildRegisterInstanceRequest(srv *Server, serviceName string) *api.Instance
 	return registerRequest
 }
 
-// Deregister deregister services from polaris
-func (s *Server) Deregister() {
-	deregisterServices(s.registerContext)
+func getLocalHost(serverAddr string) (string, error) {
+	conn, err := net.Dial("tcp", serverAddr)
+	if nil != err {
+		return "", err
+	}
+	localAddr := conn.LocalAddr().String()
+	colonIdx := strings.LastIndex(localAddr, ":")
+	if colonIdx > 0 {
+		return localAddr[:colonIdx], nil
+	}
+	return localAddr, nil
+}
+
+func parsePort(addr string) (int, error) {
+	colonIdx := strings.LastIndex(addr, ":")
+	if colonIdx < 0 {
+		return 0, fmt.Errorf("invalid addr string: %s", addr)
+	}
+	portStr := addr[colonIdx+1:]
+	return strconv.Atoi(portStr)
+}
+
+func deregisterServices(providerAPI api.ProviderAPI, services []*api.InstanceRegisterRequest) {
+	if len(services) == 0 {
+		return
+	}
+	for _, registerRequest := range services {
+		deregisterRequest := &api.InstanceDeRegisterRequest{}
+		deregisterRequest.Namespace = registerRequest.Namespace
+		deregisterRequest.Service = registerRequest.Service
+		deregisterRequest.Host = registerRequest.Host
+		deregisterRequest.Port = registerRequest.Port
+		deregisterRequest.ServiceToken = registerRequest.ServiceToken
+		err := providerAPI.Deregister(deregisterRequest)
+		if nil != err {
+			grpclog.Errorf("[Polaris][Naming] fail to deregister %s:%d to service %s(%s)",
+				deregisterRequest.Host, deregisterRequest.Port, deregisterRequest.Service, deregisterRequest.Namespace)
+			continue
+		}
+		grpclog.Infof("[Polaris][Naming] success to deregister %s:%d to service %s(%s)",
+			deregisterRequest.Host, deregisterRequest.Port, deregisterRequest.Service, deregisterRequest.Namespace)
+	}
 }
