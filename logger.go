@@ -18,6 +18,7 @@
 package grpcpolaris
 
 import (
+	"fmt"
 	"log"
 	"sync/atomic"
 
@@ -70,7 +71,7 @@ func newDefaultLogger() *defaultLogger {
 
 	levelRef.Store(LogInfo)
 	return &defaultLogger{
-		writer:   log.New(lumberJackLogger, "", log.Llongfile|log.Ldate|log.Ltime),
+		writer:   log.New(lumberJackLogger, "", log.Lshortfile|log.Ldate|log.Ltime),
 		levelRef: levelRef,
 	}
 }
@@ -101,5 +102,5 @@ func (l *defaultLogger) printf(expectLevel LogLevel, format string, args ...inte
 	if curLevel > expectLevel {
 		return
 	}
-	l.writer.Printf(format, args...)
+	_ = l.writer.Output(3, fmt.Sprintf(format, args...))
 }
