@@ -4,3 +4,4 @@ polaris/
 
 style_tool/
 goimports-reviser
+*.log

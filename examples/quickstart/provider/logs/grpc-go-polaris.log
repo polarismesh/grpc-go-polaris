@@ -1,4 +1,0 @@
-2024/06/22 19:01:20 /Users/liaochuntao/Github/grpc-go-polaris/logger.go:104: [Polaris][Naming] receive quit signal: interrupt
-2024/06/22 19:03:21 logger.go:104: [Polaris][Naming] receive quit signal: interrupt
-2024/06/22 19:05:55 logger.go:95: [Polaris][Naming] receive quit signal: interrupt
-2024/06/22 19:06:37 logger.go:88: [Polaris][Naming] receive quit signal: interrupt
