@@ -20,7 +20,6 @@ package grpcpolaris
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -99,11 +98,13 @@ func (srv *Server) doRegister(lis net.Listener) error {
 		}
 		srv.serverOptions.host = host
 	}
-	port, err := parsePort(lis.Addr().String())
-	if nil != err {
-		return fmt.Errorf("error occur while parsing port from listener: %w", err)
+	if srv.serverOptions.port == 0 {
+		port, err := parsePort(lis.Addr().String())
+		if nil != err {
+			return fmt.Errorf("error occur while parsing port from listener: %w", err)
+		}
+		srv.serverOptions.port = port
 	}
-	srv.serverOptions.port = port
 	svcInfos := buildServiceNames(srv.Server, srv)
 
 	for _, name := range svcInfos {
@@ -130,7 +131,7 @@ func (srv *Server) Serve(lis net.Listener) error {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGSEGV, syscall.SIGINT, syscall.SIGTERM)
 		s := <-c
-		log.Printf("[Polaris][Naming] receive quit signal: %v", s)
+		GetLogger().Info("[Polaris][Naming] receive quit signal: %v", s)
 		signal.Stop(c)
 		srv.Stop()
 	}()
@@ -170,14 +171,14 @@ func (srv *Server) Deregister() {
 func Serve(gSrv *grpc.Server, lis net.Listener, opts ...ServerOption) error {
 	pSrv, err := Register(gSrv, lis, opts...)
 	if err != nil {
-		log.Fatalf("polaris register err: %v", err)
+		GetLogger().Error("polaris register err: %v", err)
 	}
 
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 		s := <-c
-		log.Printf("[Polaris][Naming] receive quit signal: %v", s)
+		GetLogger().Info("[Polaris][Naming] receive quit signal: %v", s)
 		signal.Stop(c)
 		pSrv.Stop()
 	}()

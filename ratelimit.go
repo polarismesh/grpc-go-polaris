@@ -29,7 +29,6 @@ import (
 	"github.com/polarismesh/specification/source/go/api/v1/traffic_manage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -80,7 +79,7 @@ func (p *RateLimitInterceptor) UnaryInterceptor(ctx context.Context, req interfa
 
 	future, err := p.limitAPI.GetQuota(quotaReq)
 	if nil != err {
-		grpclog.Errorf("[Polaris][RateLimit] fail to get quota %#v: %v", quotaReq, err)
+		GetLogger().Error("[Polaris][RateLimit] fail to get quota %#v: %v", quotaReq, err)
 		return handler(ctx, req)
 	}
 
@@ -167,21 +166,21 @@ func (p *RateLimitInterceptor) fetchArguments(req *model.QuotaRequestImpl) ([]*t
 	}
 
 	if err := engine.SyncGetResources(getRuleReq); err != nil {
-		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule fail : %+v",
+		GetLogger().Error("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule fail : %+v",
 			req.GetNamespace(), req.GetService(), err)
 		return nil, false
 	}
 
 	svcRule := getRuleReq.RateLimitRule
 	if svcRule == nil || svcRule.GetValue() == nil {
-		grpclog.Warningf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule is nil",
+		GetLogger().Warn("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule is nil",
 			req.GetNamespace(), req.GetService())
 		return nil, false
 	}
 
 	rules, ok := svcRule.GetValue().(*traffic_manage.RateLimit)
 	if !ok {
-		grpclog.Errorf("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule invalid",
+		GetLogger().Error("[Polaris][RateLimit] ns:%s svc:%s get RateLimit Rule invalid",
 			req.GetNamespace(), req.GetService())
 		return nil, false
 	}
