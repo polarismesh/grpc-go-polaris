@@ -33,7 +33,6 @@ import (
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
@@ -72,11 +71,11 @@ type (
 
 // Build creates polaris balancer.Balancer implement
 func (bb *balancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
-	grpclog.Infof("[Polaris][Balancer] start to build polaris balancer")
+	GetLogger().Info("[Polaris][Balancer] start to build polaris balancer")
 	target := opts.Target
 	host, _, err := parseHost(target.URL.Host)
 	if err != nil {
-		grpclog.Errorln("[Polaris][Balancer] failed to create balancer: " + err.Error())
+		GetLogger().Error("[Polaris][Balancer] failed to create balancer: " + err.Error())
 		return nil
 	}
 	return &polarisNamingBalancer{
@@ -174,7 +173,7 @@ func (p *polarisNamingBalancer) createSubConnection(addr resolver.Address) {
 	// is a new address (not existing in b.subConns).
 	sc, err := p.cc.NewSubConn([]resolver.Address{addr}, balancer.NewSubConnOptions{HealthCheckEnabled: true})
 	if err != nil {
-		grpclog.Warningf("[Polaris][Balancer] failed to create new SubConn: %v", err)
+		GetLogger().Warn("[Polaris][Balancer] failed to create new SubConn: %v", err)
 		return
 	}
 	p.subConns[key] = sc
@@ -198,9 +197,7 @@ func (p *polarisNamingBalancer) UpdateClientConnState(state balancer.ClientConnS
 	if state.BalancerConfig != nil {
 		p.lbCfg = state.BalancerConfig.(*LBConfig)
 	}
-	if grpclog.V(2) {
-		grpclog.Infoln("[Polaris][Balancer] got new ClientConn state: ", state)
-	}
+	GetLogger().Debug("[Polaris][Balancer] got new ClientConn state: ", state)
 	if len(state.ResolverState.Addresses) == 0 {
 		p.ResolverError(errors.New("produced zero addresses"))
 		return balancer.ErrBadResolverState
@@ -257,17 +254,13 @@ func (p *polarisNamingBalancer) ResolverError(err error) {
 // UpdateSubConnState is called by gRPC when the state of a SubConn changes.
 func (p *polarisNamingBalancer) UpdateSubConnState(sc balancer.SubConn, state balancer.SubConnState) {
 	s := state.ConnectivityState
-	if grpclog.V(2) {
-		grpclog.Infof("[Polaris][Balancer] handle SubConn state change: %p, %v", sc, s)
-	}
+	GetLogger().Info("[Polaris][Balancer] handle SubConn state change: %p, %v", sc, s)
 	oldS, quit := func() (connectivity.State, bool) {
 		p.rwMutex.Lock()
 		defer p.rwMutex.Unlock()
 		oldS, ok := p.scStates[sc]
 		if !ok {
-			if grpclog.V(2) {
-				grpclog.Infof("[Polaris][Balancer] got state changes for an unknown SubConn: %p, %v", sc, s)
-			}
+			GetLogger().Info("[Polaris][Balancer] got state changes for an unknown SubConn: %p, %v", sc, s)
 			return connectivity.TransientFailure, true
 		}
 		if oldS == connectivity.TransientFailure && s == connectivity.Connecting {
@@ -420,13 +413,11 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 			request.SourceService = *sourceService
 		} else {
 			if err := pnp.addTrafficLabels(info, request); err != nil {
-				grpclog.Errorf("[Polaris][Balancer] fetch traffic labels fail : %+v", err)
+				GetLogger().Error("[Polaris][Balancer] fetch traffic labels fail : %+v", err)
 			}
 		}
 
-		if grpclog.V(2) {
-			grpclog.Infof("[Polaris][Balancer] get one instance request : %+v", request)
-		}
+		GetLogger().Debug("[Polaris][Balancer] get one instance request : %+v", request)
 		var err error
 		resp, err = pnp.balancer.routerAPI.ProcessRouters(request)
 		if err != nil {
@@ -500,13 +491,13 @@ func (pnp *polarisNamingPicker) addTrafficLabels(info balancer.PickInfo, insReq 
 	engine := pnp.balancer.consumerAPI.SDKContext().GetEngine()
 	resp, err := engine.SyncGetServiceRule(model.EventRouting, req)
 	if err != nil {
-		grpclog.Errorf("[Polaris][Balancer] ns:%s svc:%s get route rule fail : %+v",
+		GetLogger().Error("[Polaris][Balancer] ns:%s svc:%s get route rule fail : %+v",
 			req.GetNamespace(), req.GetService(), err)
 		return err
 	}
 
 	if resp == nil || resp.GetValue() == nil {
-		grpclog.Errorf("[Polaris][Balancer] ns:%s svc:%s get route rule empty", req.GetNamespace(), req.GetService())
+		GetLogger().Error("[Polaris][Balancer] ns:%s svc:%s get route rule empty", req.GetNamespace(), req.GetService())
 		return ErrorPolarisServiceRouteRuleEmpty
 	}
 
@@ -573,6 +564,6 @@ func (r *resultReporter) report(info balancer.DoneInfo) {
 	callResult.SetDelay(time.Since(r.startTime))
 	callResult.SetRetCode(int32(code))
 	if err := r.consumerAPI.UpdateServiceCallResult(callResult); err != nil {
-		grpclog.Errorf("[Polaris][Balancer] report grpc call info fail : %+v", err)
+		GetLogger().Error("[Polaris][Balancer] report grpc call info fail : %+v", err)
 	}
 }

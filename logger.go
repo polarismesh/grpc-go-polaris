@@ -18,8 +18,10 @@
 package grpcpolaris
 
 import (
-	"io"
+	"log"
 	"sync/atomic"
+
+	"github.com/natefinch/lumberjack"
 )
 
 type LogLevel int
@@ -32,40 +34,72 @@ const (
 	LogError
 )
 
+var _log Logger = newDefaultLogger()
+
+func SetLogger(logger Logger) {
+	_log = logger
+}
+
+func GetLogger() Logger {
+	return _log
+}
+
 type Logger interface {
-	SetWriter(io.WriteCloser)
-	SetLevel()
-	Debug(format string, args interface{})
-	Info(format string, args interface{})
-	Warn(format string, args interface{})
-	Error(format string, args interface{})
+	SetLevel(LogLevel)
+	Debug(format string, args ...interface{})
+	Info(format string, args ...interface{})
+	Warn(format string, args ...interface{})
+	Error(format string, args ...interface{})
 }
 
 type defaultLogger struct {
-	writerRef atomic.Value
-	levelRef  atomic.Value
+	writer   *log.Logger
+	levelRef atomic.Value
 }
 
-func (l *defaultLogger) SetWriter(writer io.WriteCloser) {
-	l.writerRef.Store(writer)
+func newDefaultLogger() *defaultLogger {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   "./logs/grpc-go-polaris.log", // 文件位置
+		MaxSize:    100,                          // 进行切割之前,日志文件的最大大小(MB为单位)
+		MaxAge:     7,                            // 保留旧文件的最大天数
+		MaxBackups: 100,                          // 保留旧文件的最大个数
+		Compress:   true,                         // 是否压缩/归档旧文件
+	}
+
+	levelRef := atomic.Value{}
+
+	levelRef.Store(LogInfo)
+	return &defaultLogger{
+		writer:   log.New(lumberJackLogger, "", log.Llongfile|log.Ldate|log.Ltime),
+		levelRef: levelRef,
+	}
 }
 
 func (l *defaultLogger) SetLevel(level LogLevel) {
 	l.levelRef.Store(level)
 }
 
-func (l *defaultLogger) Debug(format string, args interface{}) {
+func (l *defaultLogger) Debug(format string, args ...interface{}) {
+	l.printf(LogDebug, format, args...)
+}
+
+func (l *defaultLogger) Info(format string, args ...interface{}) {
+	l.printf(LogInfo, format, args...)
 
 }
 
-func (l *defaultLogger) Info(format string, args interface{}) {
-
+func (l *defaultLogger) Warn(format string, args ...interface{}) {
+	l.printf(LogWarn, format, args...)
 }
 
-func (l *defaultLogger) Warn(format string, args interface{}) {
-
+func (l *defaultLogger) Error(format string, args ...interface{}) {
+	l.printf(LogError, format, args...)
 }
 
-func (l *defaultLogger) Error(format string, args interface{}) {
-
+func (l *defaultLogger) printf(expectLevel LogLevel, format string, args ...interface{}) {
+	curLevel := l.levelRef.Load().(LogLevel)
+	if curLevel > expectLevel {
+		return
+	}
+	l.writer.Printf(format, args...)
 }

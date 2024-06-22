@@ -8,6 +8,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/polarismesh/polaris-go v1.6.0-beta.5
 	github.com/polarismesh/specification v1.5.1
 	github.com/prometheus/client_golang v1.19.1 // indirect

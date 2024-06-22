@@ -31,7 +31,6 @@ import (
 	"github.com/polarismesh/polaris-go/api"
 	"github.com/polarismesh/polaris-go/pkg/model"
 	"google.golang.org/grpc/attributes"
-	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/resolver"
 )
 
@@ -280,12 +279,12 @@ func (pr *polarisNamingResolver) watcher() {
 			continue
 		}
 		if err = pr.cc.UpdateState(*state); nil != err {
-			grpclog.Errorf("fail to do update service %s: %v", pr.target.URL.Host, err)
+			GetLogger().Error("fail to do update service %s: %v", pr.target.URL.Host, err)
 		}
 		var svcKey model.ServiceKey
 		svcKey, eventChan, err = pr.doWatch(consumerAPI)
 		if nil != err {
-			grpclog.Errorf("fail to do watch for service %s: %v", svcKey, err)
+			GetLogger().Error("fail to do watch for service %s: %v", svcKey, err)
 		}
 	}
 }
