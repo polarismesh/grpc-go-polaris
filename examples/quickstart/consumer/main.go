@@ -29,6 +29,7 @@ import (
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
+	"github.com/polarismesh/polaris-go/api"
 )
 
 const (
@@ -70,16 +71,16 @@ func main() {
 		ctx = metadata.AppendToOutgoingContext(ctx, "uid", r.Header.Get("uid"))
 
 		// 请求时设置本次请求的负载均衡算法
-		// ctx = polaris.RequestScopeLbPolicy(ctx, api.LBPolicyRingHash)
-		// ctx = polaris.RequestScopeLbHashKey(ctx, r.Header.Get("uid"))
+		ctx = polaris.RequestScopeLbPolicy(ctx, api.LBPolicyRingHash)
+		ctx = polaris.RequestScopeLbHashKey(ctx, r.Header.Get("uid"))
 		resp, err := echoClient.Echo(ctx, &pb.EchoRequest{Value: value})
 		log.Printf("send message, resp (%v), err(%v)", resp, err)
 		if nil != err {
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(resp.GetValue()))
 	}
 	http.HandleFunc("/echo", indexHandler)

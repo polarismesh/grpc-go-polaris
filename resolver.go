@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/polarismesh/polaris-go/api"
@@ -78,8 +77,8 @@ func targetToOptions(target resolver.Target) (*dialOptions, error) {
 		if len(optionsStr) > 0 {
 			value, err := base64.URLEncoding.DecodeString(optionsStr)
 			if nil != err {
-				return nil, fmt.Errorf(
-					"fail to decode endpoint %s, options %s: %w", target.URL.Opaque, optionsStr, err)
+				GetLogger().Error("[Polaris][Resolver] fail to decode endpoint %s, options %s: %w", target.URL.Opaque, optionsStr, err)
+				return nil, fmt.Errorf("fail to decode endpoint %s, options %s: %w", target.URL.Opaque, optionsStr, err)
 			}
 			if err = json.Unmarshal(value, options); nil != err {
 				return nil, fmt.Errorf("fail to unmarshal options %s: %w", string(value), err)
@@ -104,18 +103,26 @@ func (rb *resolverBuilder) Build(
 	if err != nil {
 		return nil, err
 	}
+
+	sdkCtx, err := PolarisContext()
+	if nil != err {
+		return nil, err
+	}
+
+	options.SDKContext = sdkCtx
+
 	ctx, cancel := context.WithCancel(context.Background())
 	d := &polarisNamingResolver{
-		ctx:     ctx,
-		cancel:  cancel,
-		cc:      cc,
-		rn:      make(chan struct{}, 1),
-		target:  target,
-		options: options,
-		host:    host,
-		port:    port,
+		ctx:      ctx,
+		cancel:   cancel,
+		cc:       cc,
+		target:   target,
+		options:  options,
+		host:     host,
+		port:     port,
+		consumer: api.NewConsumerAPIByContext(sdkCtx),
+		eventCh:  make(chan struct{}, 1),
 	}
-	d.wg.Add(1)
 	go d.watcher()
 	d.ResolveNow(resolver.ResolveNowOptions{})
 	return d, nil
@@ -141,18 +148,18 @@ type polarisNamingResolver struct {
 	cancel context.CancelFunc
 	cc     resolver.ClientConn
 	// rn channel is used by ResolveNow() to force an immediate resolution of the target.
-	rn      chan struct{}
-	wg      sync.WaitGroup
-	options *dialOptions
-	target  resolver.Target
-	host    string
-	port    int
+	eventCh  chan struct{}
+	options  *dialOptions
+	target   resolver.Target
+	host     string
+	port     int
+	consumer api.ConsumerAPI
 }
 
 // ResolveNow The method is called by the gRPC framework to resolve the target name
 func (pr *polarisNamingResolver) ResolveNow(opt resolver.ResolveNowOptions) { // 立即resolve，重新查询服务信息
 	select {
-	case pr.rn <- struct{}{}:
+	case pr.eventCh <- struct{}{}:
 	default:
 	}
 }
@@ -169,16 +176,11 @@ const keyDialOptions = "options"
 
 const keyResponse = "response"
 
-func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, error) {
-	sdkCtx, err := PolarisContext()
-	if nil != err {
-		return nil, nil, err
-	}
-	consumerAPI := api.NewConsumerAPIByContext(sdkCtx)
+func (pr *polarisNamingResolver) lookup() (*resolver.State, error) {
 	instancesRequest := &api.GetInstancesRequest{
 		GetInstancesRequest: model.GetInstancesRequest{
-			Service:         pr.host,
 			Namespace:       getNamespace(pr.options),
+			Service:         pr.host,
 			SkipRouteFilter: true,
 		},
 	}
@@ -186,32 +188,10 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, err
 		instancesRequest.Metadata = pr.options.DstMetadata
 	}
 
-	resp, err := consumerAPI.GetInstances(instancesRequest)
+	resp, err := pr.consumer.GetInstances(instancesRequest)
 	if nil != err {
-		return nil, consumerAPI, err
+		return nil, err
 	}
-
-	updated := false
-	for _, instance := range resp.Instances {
-		if !instance.IsHealthy() || instance.IsIsolated() { // 过滤掉不健康和隔离的。
-			updated = true
-			break
-		}
-	}
-	if updated { // 少数情况，避免创建 slice
-		usedInstances := make([]model.Instance, 0, len(resp.Instances))
-		totalWeight := 0
-		for _, instance := range resp.Instances {
-			if !instance.IsHealthy() || instance.IsIsolated() {
-				continue
-			}
-			usedInstances = append(usedInstances, instance)
-			totalWeight += instance.GetWeight()
-		}
-		resp.Instances = usedInstances
-		resp.TotalWeight = totalWeight
-	}
-
 	rc := &ResolverContext{
 		Target: pr.target,
 		Host:   pr.host,
@@ -234,59 +214,71 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, api.ConsumerAPI, err
 			Addr: fmt.Sprintf("%s:%d", instance.GetHost(), instance.GetPort()),
 		})
 	}
-	return state, consumerAPI, nil
+	return state, nil
 }
 
-func (pr *polarisNamingResolver) doWatch(
-	consumerAPI api.ConsumerAPI) (model.ServiceKey, <-chan model.SubScribeEvent, error) {
-	watchRequest := &api.WatchServiceRequest{}
-	watchRequest.Key = model.ServiceKey{
-		Namespace: getNamespace(pr.options),
-		Service:   pr.host,
+func (pr *polarisNamingResolver) doWatch() (*model.WatchAllInstancesResponse, error) {
+	watchRequest := &api.WatchAllInstancesRequest{
+		WatchAllInstancesRequest: model.WatchAllInstancesRequest{
+			InstancesListener: pr,
+			WatchMode:         model.WatchModeNotify,
+			ServiceKey: model.ServiceKey{
+				Namespace: getNamespace(pr.options),
+				Service:   pr.host,
+			},
+		},
 	}
-	resp, err := consumerAPI.WatchService(watchRequest)
-	if nil != err {
-		return watchRequest.Key, nil, err
-	}
-	return watchRequest.Key, resp.EventChannel, nil
+	return pr.consumer.WatchAllInstances(watchRequest)
 }
 
 func (pr *polarisNamingResolver) watcher() {
-	var (
-		consumerAPI api.ConsumerAPI
-		eventChan   <-chan model.SubScribeEvent
-	)
+	watchRsp, err := pr.doWatch()
+	if nil != err {
+		GetLogger().Error("[Polaris][Resolver] fail to do watch for namespace=%s service=%s: %v",
+			pr.options.Namespace, pr.host, err)
+	}
+
 	ticker := time.NewTicker(5 * time.Second)
 	defer func() {
 		ticker.Stop()
-		pr.wg.Done()
+		watchRsp.CancelWatch()
+		close(pr.eventCh)
 	}()
 	for {
 		select {
 		case <-pr.ctx.Done():
+			GetLogger().Info("[Polaris][Resolver] exist watch instance change event for namespace=%s service=%s: %v",
+				pr.options.Namespace, pr.host)
 			return
-		case <-pr.rn:
-		case <-eventChan:
+		case <-pr.eventCh:
 		case <-ticker.C:
 		}
-		var (
-			state *resolver.State
-			err   error
-		)
-		state, consumerAPI, err = pr.lookup()
-		if err != nil {
-			pr.cc.ReportError(err)
-			continue
-		}
-		if err = pr.cc.UpdateState(*state); nil != err {
-			GetLogger().Error("fail to do update service %s: %v", pr.target.URL.Host, err)
-		}
-		var svcKey model.ServiceKey
-		svcKey, eventChan, err = pr.doWatch(consumerAPI)
-		if nil != err {
-			GetLogger().Error("fail to do watch for service %s: %v", svcKey, err)
-		}
+		pr.doRefresh()
 	}
+}
+
+func (pr *polarisNamingResolver) doRefresh() {
+	var (
+		state *resolver.State
+		err   error
+	)
+	state, err = pr.lookup()
+	if err != nil {
+		GetLogger().Error("[Polaris][Resolver] fail to do lookup %s: %v", pr.target.URL.Host, err)
+		pr.cc.ReportError(err)
+		return
+	}
+	if err = pr.cc.UpdateState(*state); nil != err {
+		GetLogger().Error("[Polaris][Resolver] fail to do update state %s: %v", pr.target.URL.Host, err)
+	}
+}
+
+func (pr *polarisNamingResolver) OnInstancesUpdate(rsp *model.InstancesResponse) {
+	defer func() {
+		// cover 住 chan 的写入一个 closed 导致的 panic
+		_ = recover()
+	}()
+	pr.eventCh <- struct{}{}
 }
 
 // Close resolver closed
