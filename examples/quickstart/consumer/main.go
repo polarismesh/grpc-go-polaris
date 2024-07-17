@@ -44,11 +44,16 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	polaris.GetLogger().SetLevel(polaris.LogDebug)
 
+	polaris.GetLogger().SetLevel(polaris.LogDebug)
+
 	conn, err := polaris.DialContext(ctx, "polaris://QuickStartEchoServerGRPC",
 		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		polaris.WithDisableRouter(),
 		polaris.WithDisableCircuitBreaker(),
 	)
+
+	conn.Close()
+
 	if err != nil {
 		log.Fatal(err)
 	}
