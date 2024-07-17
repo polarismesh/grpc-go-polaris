@@ -42,7 +42,7 @@ var (
 	// DefaultNamespace default namespace when namespace is not set
 	DefaultNamespace = "default"
 	// DefaultTTL default ttl value when ttl is not set
-	DefaultTTL = 20
+	DefaultTTL = 5
 	// DefaultGracefulStopMaxWaitDuration default stop max wait duration when not set
 	DefaultGracefulStopMaxWaitDuration = 30 * time.Second
 	// DefaultDelayStopWaitDuration default delay time before stop
@@ -57,16 +57,31 @@ const (
 )
 
 var (
+	ctxRef              = 0
 	polarisContext      api.SDKContext
 	polarisConfig       config.Configuration
 	mutexPolarisContext sync.Mutex
 	oncePolarisConfig   sync.Once
 )
 
+func ClosePolarisContext() {
+	mutexPolarisContext.Lock()
+	defer mutexPolarisContext.Unlock()
+	if nil == polarisContext {
+		return
+	}
+	ctxRef--
+	if ctxRef == 0 {
+		polarisContext.Destroy()
+		polarisContext = nil
+	}
+}
+
 // PolarisContext get or init the global polaris context
 func PolarisContext() (api.SDKContext, error) {
 	mutexPolarisContext.Lock()
 	defer mutexPolarisContext.Unlock()
+	ctxRef++
 	if nil != polarisContext {
 		return polarisContext, nil
 	}

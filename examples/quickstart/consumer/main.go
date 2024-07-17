@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -41,11 +44,16 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	polaris.GetLogger().SetLevel(polaris.LogDebug)
+
 	conn, err := polaris.DialContext(ctx, "polaris://QuickStartEchoServerGRPC",
 		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		polaris.WithDisableRouter(),
 		polaris.WithDisableCircuitBreaker(),
 	)
+
+	conn.Close()
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,8 +92,24 @@ func main() {
 		_, _ = w.Write([]byte(resp.GetValue()))
 	}
 	http.HandleFunc("/echo", indexHandler)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil); nil != err {
-		log.Fatal(err)
-	}
+	go func() {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil); nil != err {
+			log.Fatal(err)
+		}
+	}()
+	runMainLoop()
+}
 
+func runMainLoop() {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, []os.Signal{
+		syscall.SIGINT, syscall.SIGTERM,
+		syscall.SIGSEGV,
+	}...)
+
+	for s := range ch {
+		log.Printf("catch signal(%+v), stop servers", s)
+		polaris.ClosePolarisContext()
+		return
+	}
 }
