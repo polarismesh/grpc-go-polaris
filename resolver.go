@@ -256,7 +256,7 @@ func (pr *polarisNamingResolver) watcher() {
 	for {
 		select {
 		case <-pr.ctx.Done():
-			GetLogger().Info("[Polaris][Resolver] exist watch instance change event for namespace=%s service=%s: %v",
+			GetLogger().Info("[Polaris][Resolver] exit watch instance change event for namespace=%s service=%s: %v",
 				pr.options.Namespace, pr.host)
 			return
 		case <-pr.eventCh:

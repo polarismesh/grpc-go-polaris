@@ -36,14 +36,12 @@ import (
 )
 
 const (
-	listenPort = 16011
+	listenPort = 18080
 )
 
 func main() {
 	// grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	polaris.GetLogger().SetLevel(polaris.LogDebug)
 
 	conn, err := polaris.DialContext(ctx, "polaris://QuickStartEchoServerGRPC",
@@ -51,13 +49,9 @@ func main() {
 		polaris.WithDisableRouter(),
 		polaris.WithDisableCircuitBreaker(),
 	)
-
-	conn.Close()
-
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
 	echoClient := pb.NewEchoServerClient(conn)
 
 	indexHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -97,10 +91,10 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
-	runMainLoop()
+	runMainLoop(conn, cancel)
 }
 
-func runMainLoop() {
+func runMainLoop(conn *grpc.ClientConn, cancel context.CancelFunc) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, []os.Signal{
 		syscall.SIGINT, syscall.SIGTERM,
@@ -109,6 +103,8 @@ func runMainLoop() {
 
 	for s := range ch {
 		log.Printf("catch signal(%+v), stop servers", s)
+		cancel()
+		conn.Close()
 		polaris.ClosePolarisContext()
 		return
 	}
