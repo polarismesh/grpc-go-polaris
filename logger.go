@@ -19,10 +19,13 @@ package grpcpolaris
 
 import (
 	"fmt"
-	"log"
+	"runtime"
 	"sync/atomic"
+	"time"
 
 	"github.com/natefinch/lumberjack"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type LogLevel int
@@ -34,6 +37,21 @@ const (
 	LogWarn
 	LogError
 )
+
+func (l LogLevel) String() string {
+	switch l {
+	case LogDebug:
+		return "[debug]"
+	case LogInfo:
+		return "[info]"
+	case LogWarn:
+		return "[warn]"
+	case LogError:
+		return "[error]"
+	default:
+		return ""
+	}
+}
 
 var _log Logger = newDefaultLogger()
 
@@ -54,25 +72,35 @@ type Logger interface {
 }
 
 type defaultLogger struct {
-	writer   *log.Logger
+	writer   zapcore.Core
 	levelRef atomic.Value
 }
 
 func newDefaultLogger() *defaultLogger {
-	lumberJackLogger := &lumberjack.Logger{
+	encoderCfg := zapcore.EncoderConfig{
+		MessageKey:     "msg",
+		LevelKey:       "level",
+		TimeKey:        "time",
+		NameKey:        "name",
+		CallerKey:      "caller",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+	w := zapcore.AddSync(&lumberjack.Logger{
 		Filename:   "./logs/grpc-go-polaris.log", // 文件位置
 		MaxSize:    100,                          // 进行切割之前,日志文件的最大大小(MB为单位)
 		MaxAge:     7,                            // 保留旧文件的最大天数
 		MaxBackups: 100,                          // 保留旧文件的最大个数
 		Compress:   true,                         // 是否压缩/归档旧文件
-	}
+	})
 
-	levelRef := atomic.Value{}
-
-	levelRef.Store(LogInfo)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), w, zap.InfoLevel)
 	return &defaultLogger{
-		writer:   log.New(lumberJackLogger, "", log.Lshortfile|log.Ldate|log.Ltime),
-		levelRef: levelRef,
+		writer: core,
 	}
 }
 
@@ -98,9 +126,32 @@ func (l *defaultLogger) Error(format string, args ...interface{}) {
 }
 
 func (l *defaultLogger) printf(expectLevel LogLevel, format string, args ...interface{}) {
-	curLevel := l.levelRef.Load().(LogLevel)
-	if curLevel > expectLevel {
+	zapL := func() zapcore.Level {
+		switch expectLevel {
+		case LogDebug:
+			return zapcore.DebugLevel
+		case LogInfo:
+			return zapcore.InfoLevel
+		case LogWarn:
+			return zapcore.WarnLevel
+		case LogError:
+			return zapcore.ErrorLevel
+		default:
+			return zapcore.InfoLevel
+		}
+	}()
+
+	if !l.writer.Enabled(zapL) {
 		return
 	}
-	_ = l.writer.Output(3, fmt.Sprintf(format, args...))
+
+	msg := fmt.Sprintf(format, args...)
+	e := zapcore.Entry{
+		Message: msg,
+		Level:   zapL,
+		Time:    time.Now(),
+	}
+
+	e.Caller = zapcore.NewEntryCaller(runtime.Caller(2))
+	_ = l.writer.Write(e, nil)
 }

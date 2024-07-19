@@ -9,13 +9,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
-	github.com/polarismesh/polaris-go v1.6.0-beta.5
+	github.com/polarismesh/polaris-go v1.6.0-alpha.8
 	github.com/polarismesh/specification v1.5.1
 	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/common v0.54.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
+	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.26.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240617180043-68d350f18fd4 // indirect
 	google.golang.org/grpc v1.64.0

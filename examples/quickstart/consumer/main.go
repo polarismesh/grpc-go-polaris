@@ -22,24 +22,27 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/polarismesh/polaris-go/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
 	polaris "github.com/polarismesh/grpc-go-polaris"
 	"github.com/polarismesh/grpc-go-polaris/examples/common/pb"
-	"github.com/polarismesh/polaris-go/api"
 )
 
 const (
-	listenPort = 16011
+	listenPort = 18080
 )
 
 func main() {
 	// grpc客户端连接获取
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	polaris.GetLogger().SetLevel(polaris.LogDebug)
 
 	conn, err := polaris.DialContext(ctx, "polaris://QuickStartEchoServerGRPC",
 		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
@@ -49,7 +52,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
 	echoClient := pb.NewEchoServerClient(conn)
 
 	indexHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -84,8 +86,26 @@ func main() {
 		_, _ = w.Write([]byte(resp.GetValue()))
 	}
 	http.HandleFunc("/echo", indexHandler)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil); nil != err {
-		log.Fatal(err)
-	}
+	go func() {
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", listenPort), nil); nil != err {
+			log.Fatal(err)
+		}
+	}()
+	runMainLoop(conn, cancel)
+}
 
+func runMainLoop(conn *grpc.ClientConn, cancel context.CancelFunc) {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, []os.Signal{
+		syscall.SIGINT, syscall.SIGTERM,
+		syscall.SIGSEGV,
+	}...)
+
+	for s := range ch {
+		log.Printf("catch signal(%+v), stop servers", s)
+		cancel()
+		conn.Close()
+		polaris.ClosePolarisContext()
+		return
+	}
 }

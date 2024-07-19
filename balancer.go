@@ -171,7 +171,7 @@ func (p *polarisNamingBalancer) createSubConnection(key string, addr resolver.Ad
 	}
 	// is a new address (not existing in b.subConns).
 	sc, err := p.cc.NewSubConn(
-		[]resolver.Address{addr}, balancer.NewSubConnOptions{HealthCheckEnabled: true})
+		[]resolver.Address{addr}, balancer.NewSubConnOptions{HealthCheckEnabled: false})
 	if err != nil {
 		GetLogger().Error("[Polaris][Balancer] failed to create new SubConn: %v", err)
 		return
@@ -245,6 +245,8 @@ func (p *polarisNamingBalancer) ResolverError(err error) {
 		// report an error.
 		return
 	}
+	p.rwMutex.RLock()
+	defer p.rwMutex.RUnlock()
 	p.regeneratePicker(nil)
 	p.cc.UpdateState(balancer.State{
 		ConnectivityState: p.state,
@@ -308,8 +310,6 @@ func (p *polarisNamingBalancer) regeneratePicker(options *dialOptions) {
 		return
 	}
 	readySCs := make(map[string]balancer.SubConn)
-	p.rwMutex.RLock()
-	defer p.rwMutex.RUnlock()
 	// Filter out all ready SCs from full subConn map.
 	for addr, sc := range p.subConns {
 		if st, ok := p.scStates[sc]; ok && st == connectivity.Ready {
@@ -436,6 +436,7 @@ func (pnp *polarisNamingPicker) Pick(info balancer.PickInfo) (balancer.PickResul
 	subSc, ok := pnp.readySCs[addr]
 	if ok {
 		reporter := &resultReporter{
+			method:        info.FullMethodName,
 			instance:      targetInstance,
 			consumerAPI:   pnp.balancer.consumerAPI,
 			startTime:     time.Now(),
@@ -543,6 +544,7 @@ func collectRouteLabels(routings []*traffic_manage.Route) []string {
 }
 
 type resultReporter struct {
+	method        string
 	instance      model.Instance
 	consumerAPI   polaris.ConsumerAPI
 	startTime     time.Time
@@ -559,6 +561,7 @@ func (r *resultReporter) report(info balancer.DoneInfo) {
 	callResult.CalledInstance = r.instance
 	callResult.RetStatus = retStatus
 	callResult.SourceService = r.sourceService
+	callResult.SetMethod(r.method)
 	callResult.SetDelay(time.Since(r.startTime))
 	callResult.SetRetCode(int32(code))
 	if err := r.consumerAPI.UpdateServiceCallResult(callResult); err != nil {

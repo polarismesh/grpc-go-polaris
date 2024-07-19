@@ -55,7 +55,14 @@ func RegisterResolverInterceptor(i ResolverInterceptor) {
 	resolverInterceptors = append(resolverInterceptors, i)
 }
 
+func NewResolver(ctx api.SDKContext) *resolverBuilder {
+	return &resolverBuilder{
+		sdkCtx: ctx,
+	}
+}
+
 type resolverBuilder struct {
+	sdkCtx api.SDKContext
 }
 
 // Scheme polaris scheme
@@ -104,12 +111,14 @@ func (rb *resolverBuilder) Build(
 		return nil, err
 	}
 
-	sdkCtx, err := PolarisContext()
-	if nil != err {
-		return nil, err
+	if rb.sdkCtx == nil {
+		sdkCtx, err := PolarisContext()
+		if nil != err {
+			return nil, err
+		}
+		rb.sdkCtx = sdkCtx
 	}
-
-	options.SDKContext = sdkCtx
+	options.SDKContext = rb.sdkCtx
 
 	ctx, cancel := context.WithCancel(context.Background())
 	d := &polarisNamingResolver{
@@ -120,7 +129,7 @@ func (rb *resolverBuilder) Build(
 		options:  options,
 		host:     host,
 		port:     port,
-		consumer: api.NewConsumerAPIByContext(sdkCtx),
+		consumer: api.NewConsumerAPIByContext(rb.sdkCtx),
 		eventCh:  make(chan struct{}, 1),
 	}
 	go d.watcher()
@@ -247,13 +256,14 @@ func (pr *polarisNamingResolver) watcher() {
 	for {
 		select {
 		case <-pr.ctx.Done():
-			GetLogger().Info("[Polaris][Resolver] exist watch instance change event for namespace=%s service=%s: %v",
+			GetLogger().Info("[Polaris][Resolver] exit watch instance change event for namespace=%s service=%s: %v",
 				pr.options.Namespace, pr.host)
 			return
 		case <-pr.eventCh:
+			pr.doRefresh()
 		case <-ticker.C:
+			pr.doRefresh()
 		}
-		pr.doRefresh()
 	}
 }
 
