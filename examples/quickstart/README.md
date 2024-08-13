@@ -77,9 +77,9 @@ Login into polaris console, and check the instances in Service `EchoServerGRPC`.
 
 #### Invoke by http call
 
-Invoke http call，replace `${app.port}` to the consumer port (16011 by default).
+Invoke http call，replace `${app.port}` to the consumer port (18080 by default).
 ```shell
-curl -L -X GET 'http://localhost:47080/quickstart/feign?msg=hello_world''
+curl -L -X GET 'http://localhost:${app.port}/echo?value=hello_world'
 ```
 
 expect：`echo: hello_world`
