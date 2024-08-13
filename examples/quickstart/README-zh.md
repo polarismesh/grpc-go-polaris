@@ -81,10 +81,10 @@ go build -o consumer
 
 #### HTTP调用
 
-执行http调用，其中`${app.port}`替换为consumer的监听端口（默认为16011）。
+执行http调用，其中`${app.port}`替换为consumer的监听端口（默认为 18080 ）。
 
 ```shell
-curl -L -X GET 'http://localhost:${app.port}/echo?value=hello_world''
+curl -H 'uid: 12313' -L -X GET 'http://localhost:${app.port}/echo?value=hello_world'
 ```
 
 预期返回值：`echo: hello_world`
