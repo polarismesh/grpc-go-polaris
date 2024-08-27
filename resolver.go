@@ -190,7 +190,7 @@ func (pr *polarisNamingResolver) lookup() (*resolver.State, error) {
 		GetInstancesRequest: model.GetInstancesRequest{
 			Namespace:       getNamespace(pr.options),
 			Service:         pr.host,
-			SkipRouteFilter: true,
+			SkipRouteFilter: false,
 		},
 	}
 	if len(pr.options.DstMetadata) > 0 {
