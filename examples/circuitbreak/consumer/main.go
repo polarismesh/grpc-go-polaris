@@ -52,6 +52,7 @@ func main() {
 	conn, err := polaris.DialContext(ctx, "polaris://CircuitBreakerEchoServerGRPC/",
 		polaris.WithGRPCDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 		polaris.WithEnableCircuitBreaker(),
+		polaris.WithClientNamespace("default"),
 	)
 	if err != nil {
 		log.Fatal(err)
