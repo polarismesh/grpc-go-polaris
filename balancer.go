@@ -39,6 +39,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const defaultInstanceProtocol = "grpc"
+
 var (
 	reportInfoAnalyzer ReportInfoAnalyzer = func(info balancer.DoneInfo) (model.RetStatus, uint32) {
 		recErr := info.Err
@@ -596,10 +598,14 @@ func (r *resultReporter) reportCircuitBreak(instance model.Instance, status mode
 		caller.Namespace = r.sourceService.Namespace
 	}
 
+	protocol := instance.GetProtocol()
+	if protocol == "" {
+		protocol = defaultInstanceProtocol
+	}
 	insRes, err := model.NewInstanceResource(&model.ServiceKey{
 		Namespace: r.namespace,
 		Service:   r.service,
-	}, caller, "http", instance.GetHost(), instance.GetPort())
+	}, caller, protocol, instance.GetHost(), instance.GetPort())
 	if err != nil {
 		return fmt.Errorf("report circuitBreaker for service %v get instance resource failed: %v",
 			insRes, err)
