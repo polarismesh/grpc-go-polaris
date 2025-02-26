@@ -605,7 +605,7 @@ func (r *resultReporter) reportCircuitBreak(instance model.Instance, status mode
 			insRes, err)
 	}
 
-	fmt.Printf("report circuitBreaker [%v-%s] for instance %s/%s:%d "+
+	GetLogger().Debug("report circuitBreaker status [%v] code [%s] for instance %s/%s:%d "+
 		"caller [%s] "+
 		"delay [%v] "+
 		"circuitBreaker status [%v]\n",
